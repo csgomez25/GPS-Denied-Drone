@@ -41,18 +41,28 @@ You're broadening from **CV → autonomy/localization engineer.** You lead **Sta
 
 ### Where the actual work lives (outside this repo)
 
+Both working trees now live in **one repo**, `~/gps-denied-drone-stack/`:
+
 | Tree | What it is | Last worked |
 |---|---|---|
-| `~/ws_px4/src/gps_denied_autonomy/` | ROS 2 autonomy nodes — `offboard_manager`, `planner_node`, `astar`, `fake_world`. Runbooks: `README.md`, `SITL_FLIGHT.md` | 2026-07-13 |
-| `~/bev_gps_denied/` | The **research** track — semantic-BEV map-matching localization on nuScenes. Runbook: `README.md`, thesis: `GOAL.md` | 2026-07-13 |
+| `~/gps-denied-drone-stack/gps_denied_autonomy/` | ROS 2 autonomy nodes — `offboard_manager`, `planner_node`, `astar`, `fake_world`, `px4_tf_publisher`. Runbooks: `README.md`, `SITL_FLIGHT.md`, `DEPTH_SIM.md` | 2026-07-30 |
+| `~/gps-denied-drone-stack/bev_gps_denied/` | The **research** track — semantic-BEV map-matching localization on nuScenes. Runbook: `README.md`, thesis: `GOAL.md` | 2026-07-13 |
 | `~/PX4-Autopilot/`, `~/Micro-XRCE-DDS-Agent/` | Upstream deps, built from source | — |
 | `~/DPVO/` | Monocular VIO front-end used offline for the research track's real-drift study | 2026-07-07 |
 
-> ✅ **Both working trees went under git on 2026-07-30** — `gps_denied_autonomy`
-> at `5aa13a5`, `bev_gps_denied` at `08eda77`. Six weeks of results (the DPVO
-> drift study, the causal experiments, the first autonomous SITL flight, the
-> Day-4 depth bridge) are now tracked rather than loose on this disk.
-> All three repos are **local only — no remotes configured yet.**
+The old paths still work — `~/ws_px4/src/gps_denied_autonomy` and `~/bev_gps_denied`
+are now **symlinks** into that repo. That keeps `colcon build` working from `~/ws_px4`
+(verified with a clean rebuild) while the code lives under version control in one place.
+
+> ✅ **Both working trees went under git on 2026-07-30**, then merged into the single
+> `gps-denied-drone-stack` repo (`5aa13a5` and `08eda77` are preserved in its history
+> as subtrees). Six weeks of results — the DPVO drift study, the causal experiments,
+> the first autonomous SITL flight, the Day-4 depth bridge — are now tracked rather
+> than loose on this disk.
+>
+> **Two repos total:** this one (planning + lab notebook, pushed) and
+> `gps-denied-drone-stack` (all code). Not to be confused with `csgomez25/Gps_Denied`,
+> which despite the name holds a **duplicate of the IGVC project**, not drone work.
 
 ---
 
