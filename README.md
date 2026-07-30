@@ -48,9 +48,11 @@ You're broadening from **CV → autonomy/localization engineer.** You lead **Sta
 | `~/PX4-Autopilot/`, `~/Micro-XRCE-DDS-Agent/` | Upstream deps, built from source | — |
 | `~/DPVO/` | Monocular VIO front-end used offline for the research track's real-drift study | 2026-07-07 |
 
-> ⚠️ **Neither working tree is under version control.** Six weeks of results —
-> the DPVO drift study, the causal experiments, the first autonomous SITL flight
-> — exist only as loose files on this disk. Fixing that is item 1 in *Do next*.
+> ✅ **Both working trees went under git on 2026-07-30** — `gps_denied_autonomy`
+> at `5aa13a5`, `bev_gps_denied` at `08eda77`. Six weeks of results (the DPVO
+> drift study, the causal experiments, the first autonomous SITL flight, the
+> Day-4 depth bridge) are now tracked rather than loose on this disk.
+> All three repos are **local only — no remotes configured yet.**
 
 ---
 
@@ -86,11 +88,12 @@ so the eventual claim must be "architecture proven," not "nvblox validated." Day
 otherwise unblocked: octomap consumes the point cloud the bridge already publishes and
 emits the `OccupancyGrid` type `planner_node` already accepts.
 
-**Two blockers found during Day 4, to clear first.** (1) `depth_bridge.launch.py`
-defaults to a placeholder TF that conflicts with `px4_tf_publisher`, giving
-`camera_link` two parents — a wrong TF makes a plausible-looking wrong map. (2) `gz sim`
-leaked to ~30 GB RSS and was OOM-killed twice, the second time taking the desktop
-session down; mapping runs keep the sim alive much longer than a 60 s capture.
+**Two blockers found during Day 4.** (1) ✅ *Fixed* — `depth_bridge.launch.py` defaulted
+to a placeholder TF that conflicted with `px4_tf_publisher`, giving `camera_link` two
+parents; the default is now off, so the normal path is correct with no extra flags.
+(2) ⬜ *Open* — `gz sim` leaked to ~30 GB RSS and was OOM-killed twice, the second time
+taking the desktop session down. Mapping runs keep the sim alive much longer than a
+60 s capture, so this one bites Day 5 harder than it bit Day 4.
 
 ### Research track — stage 1 BEV localization — **~70%**
 
@@ -126,11 +129,12 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. ⬜ **Put the two working trees under git** — `~/ws_px4/src/gps_denied_autonomy` and
-   `~/bev_gps_denied` are untracked. This is the highest-value 10 minutes available.
-2. ⬜ **Clear the two Day-4 blockers** before building Day 5 on top of them: the
-   conflicting TF publishers (`DEPTH_SIM.md` §4a — one-line launch-file fix) and
-   Gazebo's RAM leak (§4b — start by A/B-ing `gz_x500` vs `gz_x500_depth`).
+1. ⬜ **Push all three repos somewhere off this laptop.** They're now under git but
+   have no remotes — one disk failure still costs six weeks. This is the cheapest
+   remaining item on this list.
+2. ⬜ **Characterise Gazebo's RAM leak** (`DEPTH_SIM.md` §4b) before Day 5 — mapping
+   keeps the sim alive far longer than a 60 s capture, and the current ceiling is
+   10–20 min. Start by A/B-ing `gz_x500` against `gz_x500_depth`.
 3. ⬜ **[SIM_WEEK1](./SIM_WEEK1.md) Day 5 — occupancy map from depth**, via
    `octomap_server` (installed). Drop an obstacle into the world first; every depth
    capture so far is over an empty ground plane, so nothing has been within 3 m of the

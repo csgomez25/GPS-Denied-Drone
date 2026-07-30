@@ -179,8 +179,8 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 ---
 
 ## Start RIGHT NOW (updated 2026-07-30, after Day 4)
-1. ⬜ **Git-track `~/ws_px4/src/gps_denied_autonomy` and `~/bev_gps_denied`** — neither is under version control, and they hold six weeks of results *including* the Day-4 pass.
-2. ⬜ **Clear the two Day-4 blockers** (`DEPTH_SIM.md` §4): the conflicting TF publishers, and Gazebo's ~30 GB RAM leak. Both bite Day 5 harder than they bit Day 4.
+1. ⬜ **Give all three repos a remote and push.** They're under git as of 2026-07-30 but live only on this laptop, which is the same single point of failure with extra steps.
+2. ⬜ **Characterise Gazebo's ~30 GB RAM leak** (`DEPTH_SIM.md` §4b) — the one Day-4 blocker still open, and it bites Day 5 harder than it bit Day 4. A/B `gz_x500` vs `gz_x500_depth` first.
 3. ⬜ **SIM_WEEK1 Day 5 — occupancy map from depth** via `octomap_server`, then swap `fake_world` out for `/projected_map`. That swap *is* the Phase-1 gate.
 4. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 7). Doesn't block Day 5; `px4_tf_publisher` is the interface contract.
 5. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
@@ -188,6 +188,6 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 7. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
 8. ⬜ **VIO ladder is behind.** You've used DPVO as a black box for the research track but haven't done steps 1–3 (Labbe's filters → OpenVINS on EuRoC → your own toy VI-EKF). That ladder *is* the career deliverable; the sim work won't produce it for you — and now that cuVSLAM is out of the sim path, even less of it comes for free.
 
-*(Done: lab-notebook git repo initialised; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6.)*
+*(Done: all three trees under git — lab notebook, `gps_denied_autonomy` `5aa13a5`, `bev_gps_denied` `08eda77`; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6; the Day-4 TF-conflict fix.)*
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes.

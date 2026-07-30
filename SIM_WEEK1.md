@@ -44,16 +44,16 @@ already publishes, and emits the `OccupancyGrid` type `planner_node` already acc
 > costs: Phase-1 tuning numbers will **not** transfer to nvblox, and this does not
 > count as "nvblox validated." The Day-6 VIO front-end is still undecided.
 
-> **⚠️ Two blockers found during Day 4 — deal with them before Day 5.**
-> 1. **Invalid TF tree.** `depth_bridge.launch.py` defaults `static_tf:=true`, which
->    publishes `map -> camera_link` while `px4_tf_publisher` publishes
->    `base_link -> camera_link`. Both ran on 2026-07-30, giving `camera_link` two
->    parents. octomap builds a plausible-looking wrong map if the TF is wrong.
->    Pass `static_tf:=false`; the launch default still needs fixing.
-> 2. **Gazebo leaks system RAM.** `gz sim` reached ~30 GB RSS and was OOM-killed twice
->    on 2026-07-30 (15:16, 15:25 — the second took the desktop session with it), after
->    10–20 min with `gz_x500_depth`. This is **31 GB of system RAM**, not the 6 GB VRAM
->    limit. Short captures are fine; mapping runs are not.
+> **Two blockers found during Day 4.**
+> 1. ✅ **Invalid TF tree — fixed 2026-07-30.** `depth_bridge.launch.py` defaulted
+>    `static_tf:=true`, publishing `map -> camera_link` while `px4_tf_publisher`
+>    publishes `base_link -> camera_link`. Both ran together, giving `camera_link` two
+>    parents — and near the origin it looked fine. The default is now `false`, so
+>    bridge + `px4_tf_publisher` is correct with no extra flags. Don't re-enable it.
+> 2. ⬜ **Gazebo leaks system RAM — still open.** `gz sim` reached ~30 GB RSS and was
+>    OOM-killed twice on 2026-07-30 (15:16, 15:25 — the second took the desktop session
+>    with it), after 10–20 min with `gz_x500_depth`. This is **31 GB of system RAM**,
+>    not the 6 GB VRAM limit. Short captures are fine; mapping runs are not.
 
 ---
 
@@ -168,7 +168,7 @@ Bridge Gazebo's camera topics into ROS 2 (Jazzy pairs with Gazebo Harmonic via
 `ros_gz`, installed at `1.0.22-1noble`):
 ```bash
 sudo apt install -y ros-jazzy-ros-gz
-ros2 launch gps_denied_autonomy depth_bridge.launch.py static_tf:=false
+ros2 launch gps_denied_autonomy depth_bridge.launch.py
 ros2 run gps_denied_autonomy px4_tf_publisher    # the real map->base_link->camera_link
 ```
 
@@ -211,7 +211,7 @@ Everything octomap needs is already published by the Day-4 bridge:
 | octomap input | supplied by |
 |---|---|
 | `PointCloud2` | `/depth_camera/points` |
-| `map -> camera_link` TF | `px4_tf_publisher` (**`static_tf:=false`** — see the TF blocker above) |
+| `map -> camera_link` TF | `px4_tf_publisher` (don't re-enable `static_tf` — see above) |
 | `use_sim_time` | `/clock` |
 
 ```bash
