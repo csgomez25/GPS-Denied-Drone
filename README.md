@@ -60,9 +60,13 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 > the first autonomous SITL flight, the Day-4 depth bridge — are now tracked rather
 > than loose on this disk.
 >
-> **Two repos total:** this one (planning + lab notebook, pushed) and
-> `gps-denied-drone-stack` (all code). Not to be confused with `csgomez25/Gps_Denied`,
-> which despite the name holds a **duplicate of the IGVC project**, not drone work.
+> **Two repos total:**
+> [`csgomez25/GPS-Denied-Drone`](https://github.com/csgomez25/GPS-Denied-Drone) — this
+> one, planning + lab notebook — and
+> [`csgomez25/GPS_Denied_drone`](https://github.com/csgomez25/GPS_Denied_drone)
+> (private) — all the code. ⚠️ Those two names differ only in hyphens vs. underscores;
+> check which one you're pushing to. A third repo, `csgomez25/Gps_Denied`, is **not**
+> this project at all — it holds a duplicate of the IGVC work.
 
 ---
 
