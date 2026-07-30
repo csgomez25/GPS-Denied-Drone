@@ -61,12 +61,14 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 > than loose on this disk.
 >
 > **Two repos total:**
-> [`csgomez25/GPS-Denied-Drone`](https://github.com/csgomez25/GPS-Denied-Drone) — this
-> one, planning + lab notebook — and
-> [`csgomez25/GPS_Denied_drone`](https://github.com/csgomez25/GPS_Denied_drone)
-> (private) — all the code. ⚠️ Those two names differ only in hyphens vs. underscores;
-> check which one you're pushing to. A third repo, `csgomez25/Gps_Denied`, is **not**
-> this project at all — it holds a duplicate of the IGVC work.
+>
+> | Repo | Holds |
+> |---|---|
+> | [`csgomez25/GPS-Denied-Drone`](https://github.com/csgomez25/GPS-Denied-Drone) | this one — planning, roadmap, lab notebook |
+> | [`csgomez25/GPS_Denied`](https://github.com/csgomez25/GPS_Denied) **(private)** | all the code — `gps_denied_autonomy/` + `bev_gps_denied/` |
+>
+> The code repo was briefly named `GPS_Denied_drone`; that URL still redirects.
+> Unrelated: `csgomez25/IGVC_BEV` is the ground-vehicle competition project, not this.
 
 ---
 
