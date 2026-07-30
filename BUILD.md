@@ -35,6 +35,63 @@ Keep the dream in the intro; keep the graded thing measurable.
 ### Resulting stack
 `RealSense D435i → Isaac ROS cuVSLAM (VIO) + nvblox (occupancy map) + TensorRT (any NN) on Jetson Orin Nano (Jazzy, containerized) → PX4 vision-aided EKF2 → offboard control, on a Holybro X500 V2.`
 
+### 0.6 Amendment (2026-07-30) — **octomap in sim, Isaac ROS on the Jetson**
+
+**Decision:** the laptop sim path uses **`octomap_server`** for occupancy mapping.
+Isaac ROS (nvblox + cuVSLAM) stays the **flight** stack on the Jetson, unchanged.
+The §0.5 hardware decisions above are **not** affected.
+
+**Why.** Isaac ROS ships only as NVIDIA Docker containers — nvblox and cuVSLAM are
+pinned to specific CUDA/TensorRT/cuDNN versions and are not published as apt debs.
+Standing that up on the dev laptop means installing Docker + the NVIDIA Container
+Toolkit (neither present) and running a GPU mapper on a **6 GB A3000 that already
+got the Gazebo GUI OOM-killed** during the Day-3 flight. That is days of yak-shaving
+and an unresolved VRAM risk, spent on tooling that gets thrown away the moment the
+Jetson arrives. `octomap_server` is one `apt install`, CPU-only, and needs no Docker
+at all.
+
+**What it buys immediately.** `octomap_server` publishes `/projected_map` as a
+`nav_msgs/OccupancyGrid` — the exact type `planner_node` already consumes. So
+`fake_world`'s synthetic grid can be unplugged and replaced by a map built from the
+depth camera **with no planner changes**, which is the Phase-1 gate.
+
+**What it costs — accept this consciously.**
+- octomap is an occupancy octree, **not** nvblox: no ESDF/TSDF, no GPU, different
+  parameters, different failure modes. Phase-1 tuning numbers will **not** transfer
+  to the Jetson; expect to re-tune against nvblox in Phase 2.
+- It proves the *architecture* (depth → map → plan → fly), not the *implementation*
+  you will fly. That is the right thing to prove first, but don't oversell it in the
+  report as "nvblox validated."
+- Isaac ROS × Orin Nano × Jazzy (§0.5 ⚠️ item 2) is now **unverified for longer**,
+  because sim no longer forces the question. **Verify it independently** — it is
+  still a hard gate before hardware.
+
+**Consequence for pose.** `octomap_server` does not estimate pose; it needs a TF from
+the map frame to the sensor. nvblox had the same requirement, with cuVSLAM supplying
+it. In sim, PX4's own state supplies it instead (`px4_tf_publisher`), which SIM_WEEK1
+Day 6 explicitly sanctions ("let SITL use its own state, run VIO in parallel"). That
+node is the **interface contract**: VIO later replaces PX4 state behind the same
+`map → base_link → camera_link` TF, and nothing downstream changes.
+
+**Day-6 VIO in sim is now the open sub-decision** — `rtabmap_ros` (apt, no Docker) vs.
+staying with DPVO (already running offline) vs. treating VIO as the offline
+OpenVINS/EuRoC ladder in ROADMAP. Not yet decided.
+
+**Confirmed later the same day (2026-07-30).** SIM_WEEK1 Day 4 passed, and every input
+octomap needs is live: `/depth_camera/points` at 24.5 Hz, `/clock`, and a real
+`map -> base_link -> camera_link` from `px4_tf_publisher`. `ros-jazzy-octomap-server`
+and `ros-jazzy-octomap-rviz-plugins` are installed. So this decision is not just
+cheaper on paper — the whole input side of it is already working.
+
+One caveat the same session surfaced, which cuts against the "sim is the cheap path"
+assumption: **`gz sim` leaked to ~30 GB of system RAM and was OOM-killed twice**, the
+second time taking the desktop session down (`DEPTH_SIM.md` §4b). That is a 31 GB
+system-RAM limit, *separate* from the 6 GB VRAM limit argued above. It caps sim
+sessions at 10–20 minutes with the depth airframe, which matters much more for mapping
+than it did for a 60 s capture. It does not change this decision — nvblox would face
+the same host — but it is the next thing that can make Day 5 expensive, and it is a
+laptop problem that will not follow the project to the Jetson.
+
 ---
 
 ## 1. Revised Technical Decisions (what changed after review)

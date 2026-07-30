@@ -38,8 +38,13 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ---
 
-## Phase 0 — Foundations + Sim bring-up  (Weeks 1–2)
+## Phase 0 — Foundations + Sim bring-up  (Weeks 1–2) — ✅ **done**
 **Build:** everything in [SIM_WEEK1.md](./SIM_WEEK1.md) — ROS 2 Jazzy, PX4 SITL, fly an offboard waypoint, depth into ROS.
+
+> **Status 2026-07-30: ✅ complete.** You write ROS 2 nodes from scratch
+> (`planner_node`, `offboard_manager`, `fake_world`, `px4_tf_publisher`), the sim drone
+> flies waypoints commanded from ROS, and **depth is now in ROS 2** — the last Phase-0
+> item, closed 2026-07-30 (SIM_WEEK1 Day 4). Everything in Phase 0 is done.
 
 **Learn first:**
 - **ROS 2 core** — nodes, topics, pub/sub, services, parameters, `tf2`, launch files, `colcon`, workspaces.
@@ -54,8 +59,25 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ---
 
-## Phase 1 — Full autonomy stack in simulation  (Months 1–2)
+## Phase 1 — Full autonomy stack in simulation  (Months 1–2) — 🔄 **~50%**
 **Build:** Day-7 loop fully fleshed out — cuVSLAM drift study, nvblox map, A* planner, offboard manager. Obstacle avoidance working in sim. (This is the §6 gate before buying hardware.)
+
+> **Status 2026-07-30:** ✅ **A\* planner** (`astar.py`, validated headlessly and on real
+> nuScenes HD-map rasters) and ✅ **offboard manager** are done and flew the closed loop
+> autonomously in SITL on 2026-07-13. ✅ **Depth into ROS 2** closed 2026-07-30. ⬜ **the
+> map** and ⬜ **the drift study** are not started — that's the missing half. The loop
+> currently plans on a synthetic grid, so "obstacle avoidance in sim" is proven for
+> *planning→flight*, not for *perception→flight*.
+>
+> **Scope change (BUILD.md §0.6):** the sim map is now **octomap**, not nvblox, and the
+> VIO front-end is undecided. Isaac ROS remains the Jetson flight stack. This makes
+> Phase 1 reachable on the laptop, but it means Phase-1 tuning numbers **will not
+> transfer** to nvblox — budget re-tuning in Phase 2, and don't describe this phase as
+> validating nvblox or cuVSLAM.
+>
+> **Track-4 note (quadrotor dynamics/control):** untouched so far. That's fine — the
+> offboard position-setpoint interface let you skip it. It becomes real when you tune PID
+> for actual all-up weight in Phase 3.
 
 **Learn first — four tracks, in this order:**
 
@@ -156,11 +178,16 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ---
 
-## Start RIGHT NOW (today / this week)
-1. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version).
-2. ⬜ Start a lab-notebook git repo (this folder is a good seed — `git init` it).
-3. ⬜ Begin **SIM_WEEK1.md Day 1** (ROS 2 Jazzy) — in parallel, watch 2–3 Articulated Robotics intro videos.
-4. ⬜ Order the **RealSense D435i** this week regardless (supply is thin; it's the long lead item, and you can bench-test it independently of the drone).
-5. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
+## Start RIGHT NOW (updated 2026-07-30, after Day 4)
+1. ⬜ **Git-track `~/ws_px4/src/gps_denied_autonomy` and `~/bev_gps_denied`** — neither is under version control, and they hold six weeks of results *including* the Day-4 pass.
+2. ⬜ **Clear the two Day-4 blockers** (`DEPTH_SIM.md` §4): the conflicting TF publishers, and Gazebo's ~30 GB RAM leak. Both bite Day 5 harder than they bit Day 4.
+3. ⬜ **SIM_WEEK1 Day 5 — occupancy map from depth** via `octomap_server`, then swap `fake_world` out for `/projected_map`. That swap *is* the Phase-1 gate.
+4. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 7). Doesn't block Day 5; `px4_tf_publisher` is the interface contract.
+5. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
+6. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
+7. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
+8. ⬜ **VIO ladder is behind.** You've used DPVO as a black box for the research track but haven't done steps 1–3 (Labbe's filters → OpenVINS on EuRoC → your own toy VI-EKF). That ladder *is* the career deliverable; the sim work won't produce it for you — and now that cuVSLAM is out of the sim path, even less of it comes for free.
+
+*(Done: lab-notebook git repo initialised; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6.)*
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes.

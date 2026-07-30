@@ -8,6 +8,55 @@
 
 ---
 
+## Progress (as of 2026-07-30) — **~60% through the gate**
+
+| Day | Milestone | Status | Evidence / blocker |
+|---|---|---|---|
+| 0 | Machine check | ✅ | Ubuntu 24.04, RTX A3000 **6 GB**, 16 cores, 31 GB RAM, 333 GB free |
+| 1 | ROS 2 Jazzy | ✅ | `/opt/ros/jazzy` |
+| 2 | PX4 SITL + Gazebo, manual flight | ✅ | gz-harmonic 8.12 + `~/PX4-Autopilot` builds and flies |
+| 3 | Offboard waypoint from ROS 2 | ✅ | `~/ws_px4` builds `px4_msgs` + `px4_ros_com` + `gps_denied_autonomy` |
+| 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
+| 5 | Occupancy map from depth | ⬜ **next** | path decided: `octomap_server`, not nvblox (BUILD.md §0.6). Packages installed. |
+| 6 | VIO + drift number | ⬜ | not started in sim. Front-end not yet chosen (BUILD.md §0.6). DPVO runs offline on nuScenes. |
+| 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
+
+**What's actually done:** Days 1–4 fully, and Day 7's *own code* — `planner_node`,
+`offboard_manager`, `astar`, `fake_world` all built, and the closed loop flew
+end-to-end in SITL (`~/ws_px4/src/gps_denied_autonomy/SITL_FLIGHT.md`).
+
+**Day 4 closed on 2026-07-30.** `/depth_camera/image_raw` (28.8 Hz),
+`/camera_info` (29.5 Hz), `/depth_camera/points` (24.5 Hz) and `/imu` (241 Hz) all
+deliver, captured *during* an autonomous square with `px4_tf_publisher` supplying a
+real moving `map -> base_link -> camera_link`. Runbook + numbers:
+`~/ws_px4/src/gps_denied_autonomy/DEPTH_SIM.md`.
+
+**What's left is Days 5 and 6.** Until those land, the loop plans on a hand-written
+grid rather than a map it built from a sensor, so the "Week-1 done when" bar below is
+**not** met. Day 5 is now unblocked — octomap consumes the `PointCloud2` the bridge
+already publishes, and emits the `OccupancyGrid` type `planner_node` already accepts.
+
+> **Days 5–6 decided (BUILD.md §0.6):** `octomap_server` for occupancy in sim; Isaac
+> ROS (nvblox + cuVSLAM) stays the *flight* stack on the Jetson. Isaac ROS ships only
+> as NVIDIA Docker containers, and standing that up means Docker + the NVIDIA Container
+> Toolkit (neither installed) plus a GPU mapper on 6 GB of VRAM — days of yak-shaving
+> on tooling that gets discarded when the Jetson arrives. Read §0.6 for what this
+> costs: Phase-1 tuning numbers will **not** transfer to nvblox, and this does not
+> count as "nvblox validated." The Day-6 VIO front-end is still undecided.
+
+> **⚠️ Two blockers found during Day 4 — deal with them before Day 5.**
+> 1. **Invalid TF tree.** `depth_bridge.launch.py` defaults `static_tf:=true`, which
+>    publishes `map -> camera_link` while `px4_tf_publisher` publishes
+>    `base_link -> camera_link`. Both ran on 2026-07-30, giving `camera_link` two
+>    parents. octomap builds a plausible-looking wrong map if the TF is wrong.
+>    Pass `static_tf:=false`; the launch default still needs fixing.
+> 2. **Gazebo leaks system RAM.** `gz sim` reached ~30 GB RSS and was OOM-killed twice
+>    on 2026-07-30 (15:16, 15:25 — the second took the desktop session with it), after
+>    10–20 min with `gz_x500_depth`. This is **31 GB of system RAM**, not the 6 GB VRAM
+>    limit. Short captures are fine; mapping runs are not.
+
+---
+
 ## Day 0 — Machine check & the one branch that decides your week
 
 Run these and write down the answers:
@@ -103,27 +152,90 @@ This is the single most important milestone of the week: **ROS 2 is now flying t
 
 ---
 
-## Day 4 — Depth camera into ROS 2
+## Day 4 — Depth camera into ROS 2 — ✅ **done 2026-07-30**
 
-PX4 ships an X500 variant with a depth camera:
+> Full runbook, verified topic names and results:
+> **`~/ws_px4/src/gps_denied_autonomy/DEPTH_SIM.md`**. What follows is the summary.
+
+PX4 ships an X500 variant with a depth camera (an OakD-Lite):
 ```bash
 cd PX4-Autopilot
-make px4_sitl gz_x500_depth                        # X500 + simulated depth camera
+HEADLESS=1 make px4_sitl gz_x500_depth   # HEADLESS: the GUI + sensor rendering
+                                         # does not fit 6 GB of VRAM
 ```
 
-Bridge Gazebo's camera topics into ROS 2 (Jazzy pairs with Gazebo Harmonic via `ros_gz`):
+Bridge Gazebo's camera topics into ROS 2 (Jazzy pairs with Gazebo Harmonic via
+`ros_gz`, installed at `1.0.22-1noble`):
 ```bash
 sudo apt install -y ros-jazzy-ros-gz
-# Bridge the depth image / camera_info / point cloud topics (names from `gz topic -l`)
-ros2 run ros_gz_image image_bridge /depth_camera
-ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
+ros2 launch gps_denied_autonomy depth_bridge.launch.py static_tf:=false
+ros2 run gps_denied_autonomy px4_tf_publisher    # the real map->base_link->camera_link
 ```
 
-**✅ Success check:** in RViz2, visualize the depth image / point cloud and confirm it updates as the drone moves and as you place an object in the Gazebo world.
+**Three things this cost time to learn, recorded so Day 5 doesn't repeat them:**
+
+- **`gz topic -l` first, always.** Gazebo auto-scopes any sensor topic without an
+  explicit `<topic>` tag by `world/model/link/sensor`, so the paths change if the world
+  or model is renamed. This is the same class of bug as the Day-3 topic drift.
+- **There is no camera-rigid IMU.** A `camera_imu` topic *name* appears in
+  `gz topic -l` with nothing publishing on it. The only live IMU is the flight
+  controller's on `base_link`. Fine in sim (the camera joint is fixed, extrinsic known
+  exactly) — but on hardware the camera–IMU calibration is real work, and this sim
+  passing does not retire it.
+- **The point cloud is x-forward, not ROS's z-forward optical convention.** Assume
+  wrong and Day 5's map is silently rotated 90°.
+
+**✅ Success check — met.** All four topics deliver at rate, captured *during* an
+autonomous square, with `max |first-last| = 17.2 m` across 409 frames proving the
+stream tracks the world. Evidence: `results/depth_bridge.png`.
+
+Two things the original check asked for that were **not** done, and why:
+- *RViz2 visualisation* → replaced with a headless PNG checker. RViz alongside SITL's
+  sensor rendering is the VRAM combination that OOM-killed the sim on Day 3. Same
+  evidence, less budget. A laptop constraint, not a design choice.
+- *"place an object in the Gazebo world"* → **still outstanding.** Every capture so far
+  is over an empty ground plane, so nothing is within 3 m. Near-field depth is where a
+  real D435i is trustworthy and where obstacle avoidance lives. Do this on Day 5.
 
 ---
 
-## Day 5 — Occupancy map from depth
+## Day 5 — Occupancy map from depth ← **next**
+
+> **Revised 2026-07-30: `octomap_server`, not nvblox.** Full rationale and accepted
+> costs in [BUILD.md §0.6](./BUILD.md). nvblox stays the *flight* stack on the Jetson;
+> this substitution is for the laptop sim only. The original nvblox route is kept below
+> for Phase 2.
+
+Everything octomap needs is already published by the Day-4 bridge:
+
+| octomap input | supplied by |
+|---|---|
+| `PointCloud2` | `/depth_camera/points` |
+| `map -> camera_link` TF | `px4_tf_publisher` (**`static_tf:=false`** — see the TF blocker above) |
+| `use_sim_time` | `/clock` |
+
+```bash
+sudo apt install -y ros-jazzy-octomap-server ros-jazzy-octomap-rviz-plugins  # done
+ros2 run octomap_server octomap_server_node --ros-args \
+  -p resolution:=0.10 -p frame_id:=map -p use_sim_time:=true \
+  -r cloud_in:=/depth_camera/points
+```
+
+`octomap_server` publishes **`/projected_map`** as a `nav_msgs/OccupancyGrid` — the
+exact type `planner_node` already consumes. That is the whole point: `fake_world`'s
+synthetic grid unplugs and a perceived map plugs in **with no planner changes**, which
+is the Phase-1 gate.
+
+**Clear the two Day-4 blockers first** (invalid TF tree; Gazebo's RAM leak). Mapping
+keeps the sim alive far longer than a 60 s capture, so a 10–20 minute ceiling will bite
+here, and a wrong TF yields a wrong map that still looks plausible.
+
+**✅ Success check:** an obstacle dropped into the Gazebo world appears as occupied
+cells in `/projected_map`, and the map persists correctly as the drone flies past it
+(that last part is what actually tests the TF).
+
+<details>
+<summary>Original nvblox route — deferred to Phase 2 on the Jetson</summary>
 
 **GPU path (Isaac ROS nvblox):** run via NVIDIA's `isaac_ros_common` Docker container (simplest, avoids host dependency hell). Feed it the bridged depth + camera_info + a pose source.
 ```bash
@@ -134,10 +246,22 @@ ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@
 Configure nvblox to also publish a **2D ESDF/distance-map slice at flight altitude** (`nav_msgs/OccupancyGrid` or `nvblox_msgs/DistanceMapSlice`) — that 2D slice is what the Day-7 planner consumes.
 
 **✅ Success check:** the 3D voxel map *and* a 2D slice appear in RViz, and an obstacle you drop into the Gazebo world shows up as occupied/high-cost cells.
+</details>
 
 ---
 
 ## Day 6 — VIO with cuVSLAM
+
+> **Front-end undecided as of 2026-07-30.** cuVSLAM has the same Docker/VRAM problem
+> that moved Day 5 to octomap (BUILD.md §0.6). Candidates: `rtabmap_ros` (apt, no
+> Docker), staying with **DPVO** (already running offline on nuScenes), or treating VIO
+> as the offline OpenVINS/EuRoC ladder in ROADMAP.md instead of a sim task. Whatever it
+> is, it publishes odometry behind the same `map -> base_link` TF that
+> `px4_tf_publisher` supplies today — that node is the interface contract, so this
+> decision does not block Day 5.
+>
+> Note the sim's IMU is the **body** IMU on `base_link`, not a camera-rigid one
+> (see Day 4). Usable here because the camera joint is fixed and the extrinsic exact.
 
 Launch **Isaac ROS cuVSLAM** on the sim stereo/depth + IMU; confirm it publishes an odometry estimate (`/visual_slam/tracking/odometry` or via TF). Compare its track against PX4 sim ground-truth pose over a 30–60 s flight and write down a first **drift number** (e.g. cm of position error after a loop). This is your baseline before the sensor ever flies.
 
@@ -230,6 +354,14 @@ ros2 launch my_autonomy bringup.launch.py
 ### ✅ Week-1 done when
 Simulated X500 autonomously flies start → goal, avoiding one inserted obstacle, with the map built live from depth and cuVSLAM producing a validated odometry track. That's the §6 Step-1 gate in BUILD.md — **only after this do you start buying hardware.**
 
+> **Status 2026-07-30: not met.** The flight half is done (autonomous start → goal
+> through a doorway, 2026-07-13) and the depth stream is live (Day 4). Missing: the map
+> is still `fake_world`'s synthetic grid, and there is no odometry track or drift
+> number. Per BUILD.md §0.6 the map will be built by **octomap, not nvblox**, and the
+> VIO front-end is undecided — so when this gate is called, state plainly what was
+> validated. "Architecture proven with octomap + PX4 sim pose" is an honest and
+> defensible claim; "nvblox and cuVSLAM validated" would not be.
+
 ### Upgrade path (don't do these in week 1)
 - **3D planning:** plan over the nvblox ESDF in 3D (e.g. a sampling planner, or `ego-planner` / MAVROS-style local planners) instead of a 2D slice.
 - **Smooth trajectories:** replace raw waypoints with minimum-snap / polynomial trajectories for smooth, fast flight.
@@ -244,6 +376,10 @@ Simulated X500 autonomously flies start → goal, avoiding one inserted obstacle
 - **Isaac ROS = Docker.** Don't try to apt-install it onto a bare host; use NVIDIA's container. It needs the NVIDIA Container Toolkit.
 - **Offboard mode safety timeout:** PX4 drops out of Offboard if setpoints stop arriving at a high enough rate (~>2 Hz). If the drone "falls out" of autonomy, check your publish rate first.
 - **Frames/TF:** PX4 is NED, ROS is ENU. The px4_ros_com helpers handle conversions — respect them or your waypoints go sideways.
+- **Gazebo *sensor* frames are x-forward**, while ROS's optical convention is z-forward. Confirmed on the depth cloud, Day 4. Different axis trap from the NED/ENU one above, and it bites the mapper rather than the controller.
+- **One child frame, one parent.** Running two publishers that both parent `camera_link` produces an invalid TF tree that tf2 resolves nondeterministically — and near the origin it looks *fine*. Hit on Day 4; see DEPTH_SIM.md §4a.
+- **Watch system RAM, not just VRAM.** `gz sim` with the depth airframe grew to ~30 GB RSS and was OOM-killed twice on 2026-07-30, the second time taking the desktop session down. The 6 GB VRAM limit is a *separate* constraint with a confusingly similar symptom.
+- **Don't redirect the `pxh>` console to an uncapped file.** Two SITL logs reached 7.8 GB, almost entirely terminal escape codes.
 
 ---
 

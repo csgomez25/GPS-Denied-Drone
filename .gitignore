@@ -23,3 +23,7 @@ venv/
 rosbag2_*/
 *.pcd
 datasets/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+.claude/settings.local.json.tmp.*
