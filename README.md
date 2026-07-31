@@ -172,22 +172,44 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. 🔄 **Day 6 — two real blockers found, both open.** `icp_odometry` runs end to end at
-   28 Hz, but (a) `/fmu/out/vehicle_odometry` is **EKF2's estimate**, not truth — PX4
-   exports no groundtruth over DDS, so add a Gazebo `PosePublisher` via an overlay world
-   and bridge it; and (b) ICP reports `ratio = 0.000000` every frame, i.e. it never
-   registered a scan. Next isolating test: `frame_id:=camera_link`, which removes the TF
-   lookup from the path. Do not quote any drift figure until both are fixed.
-2. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Unplug
-   `fake_world` and fly a mission planned on a **perceived** map. No new code — the
-   planner already consumes that message type, and its unknown-space policy is now
-   measured on two real maps ([PLANNING](https://github.com/csgomez25/GPS_Denied)).
-3. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
-4. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
-5. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*
-6. ⬜ **Research track:** build the 2-DOF (along-track + heading) matcher — the cross-track
+> **Re-prioritised 2026-07-31.** Parts are ~90% chosen (Orin Nano Super + D435i) but
+> the **budget does not unlock until the course starts**, so nothing can be ordered.
+> The binding constraint is no longer money — it is **fall time**, which will go to
+> assembly, bring-up, calibration, integration and mentoring new teammates. The
+> remaining summer's job is to arrive with the learning curves already climbed.
+> The Phase-1 gate no longer gates anything (budget already decided the buy), so it is
+> now a milestone, not a decision. Details: [SUMMER.md](./SUMMER.md).
+
+
+1. ⭐ **The VIO ladder** ([ROADMAP.md](./ROADMAP.md) steps 1–3: Labbé's filters →
+   OpenVINS on EuRoC → a toy VI-EKF). The career deliverable, entirely offline, and
+   **the fall has no room for it.** `~/DPVO` already has `evaluate_euroc.py` and EuRoC
+   logs, so the infrastructure is half-built. Highest-value hours available.
+2. ⭐ **De-risk Isaac ROS on the laptop.** Every decision so far deferred it (octomap
+   not nvblox, rtabmap not cuVSLAM) and [BUILD.md §0.6](./BUILD.md) warns it is
+   "unverified for longer". The box can run it — RTX A3000 6 GB, driver 595.71, 308 GB
+   free — but Docker and the NVIDIA Container Toolkit are **not installed**. Install,
+   pull the container, run the cuVSLAM quickstart on a dataset. **If the Isaac ROS ×
+   Jazzy × Orin Nano matrix needs Humble, July is a cheap time to learn that and
+   October with parts on the bench is not.**
+3. ⬜ **Practice Kalibr on a dataset.** Camera–IMU calibration is the one thing sim
+   cannot teach — in sim the extrinsic is exact and free; on hardware it is vibration,
+   thermal drift and a fiddly toolchain. EuRoC ships calibration data.
+4. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** An
+   afternoon; no new code, since the planner already consumes that message type and its
+   unknown-space policy is measured on two real maps. Milestone value now, not decision
+   value.
+5. ⬜ **Research track:** the 2-DOF (along-track + heading) matcher — the cross-track
    line is closed out with evidence. See `bev_gps_denied/README.md` in the code repo.
-7. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera) + begin the VIO ladder in [ROADMAP.md](./ROADMAP.md).
+6. 🟡 **Day 6 — timeboxed, then move on.** Two real blockers: `/fmu/out/vehicle_odometry`
+   is **EKF2's estimate**, not truth (PX4 exports no groundtruth over DDS — needs a
+   Gazebo `PosePublisher`), and ICP reports `ratio = 0.000000` every frame. Worth one
+   session, not days: rtabmap does not ship, cuVSLAM does. Never quote the drift figure.
+7. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera).
+
+*(Hardware items — verify Orin Nano vs. old Nano, order the D435i — move to the fall
+with the budget. Parts are ~90% decided; the §0.5 ⚠️ **Isaac ROS × Jazzy support matrix**
+check does **not** wait, and is folded into item 2.)*
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes (except the long-lead RealSense/Jetson).
 

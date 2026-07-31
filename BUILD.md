@@ -28,6 +28,14 @@ Keep the dream in the intro; keep the graded thing measurable.
 | **Autopilot** | **PX4 (lean)** — *can finalize in sim* | Best offboard + VIO docs. Most decoupled choice: it just receives vision odometry over uXRCE-DDS. ArduPilot equally viable. |
 | **Frame** | **Holybro X500 V2** | PX4 reference platform; carries the payload; custom airframe is a stretch goal. |
 
+> **Status 2026-07-31.** Both choices are **~90% confirmed** (Orin Nano Super +
+> RealSense D435i), but the **budget does not unlock until the course starts**, so
+> nothing can be ordered this summer. That does *not* excuse item 2 below: the Isaac
+> ROS × Orin Nano × Jazzy support matrix is a **documentation check, not a purchase**,
+> and if it comes back "Humble only" it invalidates a lot of Jazzy-specific work. Do it
+> now, folded into the Isaac ROS container de-risk in SUMMER.md. Item 1 (confirming the
+> board is an *Orin* Nano) can wait for the order.
+
 ### ⚠️ Two things to verify BEFORE buying
 1. **Confirm the Jetson is an *Orin* Nano.** The original 2019 Jetson Nano maxes at Ubuntu 20.04, is EOL, has no Isaac ROS support, and is too weak for VIO + mapping. Dead end.
 2. **Pin the Isaac ROS release that supports Orin Nano + Jazzy.** Newer Isaac ROS releases prioritize Jetson Thor / x86; Orin Nano is supported but verify the exact version matrix, or you may be forced back to Humble (which conflicts with the Jazzy preference).
@@ -79,6 +87,15 @@ First, the overlay model that fixes the RAM leak **deletes the RGB camera**, so 
 feature-based front-end has an image to work with — `icp_odometry` on the depth cloud
 does not need one. Second, rtabmap is a *SLAM* system, so it must run with **loop
 closure off**: loop closure corrects exactly the drift Day 6 exists to measure.
+
+**Timebox it (2026-07-31).** Day 6 produced a running pipeline and two honest blockers
+(`VIO.md` §3b): the "ground truth" is EKF2's own estimate, and ICP registers nothing.
+Worth one more session — real ground truth from a Gazebo `PosePublisher`, one attempt
+at the `ratio=0` cause — then move on regardless of the outcome. rtabmap does **not**
+ship; cuVSLAM does. Days spent tuning ICP buy nothing that transfers, and the sim
+cannot test the part that actually matters (camera–IMU calibration). With hardware
+budget-locked until the fall, that time is far better spent de-risking Isaac ROS itself
+and climbing the VIO ladder — see SUMMER.md "Revised priorities".
 
 Same caveat as octomap-vs-nvblox, and it should be stated the same way in the report:
 this validates the **pipeline**, not cuVSLAM. It also validates less than it appears

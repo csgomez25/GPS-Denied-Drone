@@ -43,7 +43,53 @@ Maps to the Hardware role in ROLES.md (Teammate C). Concrete tasks:
 
 ## What to buy NOW vs. wait for fall
 
-> ⚠️ **First, confirm the money source.** If the department/senior-design budget reimburses parts but the funds only unlock when the course starts, don't float ~$1,100 out of pocket all summer. If it's reimbursable now or you're fine fronting it, buy aggressively. The plan below assumes you can buy at least the low-cost long-lead item.
+> ### ✅ RESOLVED 2026-07-31 — and it went the other way
+>
+> **Parts choices are ~90% confirmed (Orin Nano Super + RealSense D435i), but the
+> budget does not unlock until the course starts.** Nothing can be ordered this summer.
+>
+> That inverts the plan below, and it changes what the rest of the summer is *for*.
+> The binding constraint is no longer money — it is **your time in the fall**, which
+> will be consumed by assembly, sensor bring-up, calibration, cuVSLAM integration,
+> EKF2 fusion, flight tests, *and* mentoring two new teammates. There is no room in
+> that for learning curves.
+>
+> **So the remaining summer has exactly one job: arrive in the fall with the learning
+> curves already climbed.** Three things, all of which are offline and cannot be
+> blocked by parts — see "Revised priorities" below.
+>
+> Note this also means **the Phase-1 sim gate no longer gates anything.** It existed to
+> decide "is it safe to buy hardware?", and budget already decided that. Finish it for
+> the milestone and the report, but do not let it crowd out the three items below.
+
+### Revised priorities (2026-07-31, hardware budget-locked)
+
+1. ⭐ **The VIO ladder** (ROADMAP steps 1–3: Labbé's filters → OpenVINS on EuRoC → a
+   toy VI-EKF). This is the career deliverable, it is entirely offline, and **the fall
+   has no room for it**. Partial infrastructure already exists — `~/DPVO` has
+   `evaluate_euroc.py` and EuRoC logs. Highest-value hours available.
+2. ⭐ **De-risk Isaac ROS now, on the laptop.** Every decision so far has deliberately
+   deferred it (octomap instead of nvblox, rtabmap instead of cuVSLAM), and BUILD §0.6
+   warns it is "unverified for longer." The dev box can run it: **RTX A3000 6 GB,
+   driver 595.71, 308 GB free**; Docker and the NVIDIA Container Toolkit are *not*
+   installed. Install them, pull the container, run the cuVSLAM quickstart on a
+   dataset. That validates the workflow, the ROS interfaces and the tuning surface —
+   most of which transfers to the Jetson. **If the Isaac ROS × Jazzy × Orin Nano matrix
+   turns out to need Humble, finding out in July is cheap and finding out in October
+   with parts on the bench is not.**
+3. **Practice Kalibr on a dataset.** Camera–IMU calibration is the one thing sim
+   structurally cannot teach — in sim the extrinsic is exact and free; on hardware it
+   is vibration, thermal drift and a fiddly toolchain. EuRoC ships calibration data.
+4. Close the Phase-1 gate (an afternoon: point `planner_node` at `/projected_map`).
+5. Research track: the 2-DOF along-track + heading matcher.
+
+**Stop:** tuning rtabmap ICP. It does not ship (cuVSLAM does), it cannot test the hard
+part, and it has already produced its honest finding (`VIO.md` §3b).
+
+---
+
+> ⚠️ **Original buy guidance, kept for the fall.** Confirm the money source; if the
+> budget reimburses only from course start, don't float ~$1,100 out of pocket.
 
 **Buy now (long-lead / unblocks summer work):**
 - ⭐ **RealSense D435i** — thin stock post-spinout, long lead, and you can bench-test it independently. **Highest priority, buy first regardless.**
@@ -67,7 +113,13 @@ This sets up the exact ROLES.md split, but with you having a summer head-start t
 ---
 
 ## Summer milestones (rough)
+*(Original plan — superseded 2026-07-31 by the budget lock; kept for comparison.)*
 - **Weeks 1–3:** toolchain + SIM_WEEK1 through Day 4; friend starts X500 assembly; RealSense + Jetson ordered.
 - **Weeks 4–6:** sim autonomy loop closed (Phase-1 gate); friend reaches manual flight; OpenVINS-on-EuRoC running.
 - **Weeks 7–10:** cuVSLAM in sim + on bench with real RealSense; toy VI-EKF; friend finishes mounts + vibration isolation.
-- **End of summer:** sim demo + bench VIO working; airframe flight-ready; you understand the whole stack and are ready to lead in the fall.
+- **End of summer:** sim demo + bench VIO working; airframe flight-ready.
+
+**Revised end-of-summer target (no hardware available):** SIM_WEEK1 Days 1–5 done ✅,
+Phase-1 gate closed, **OpenVINS running on EuRoC with a drift number you understand**,
+**Isaac ROS + cuVSLAM demonstrated in a container on the laptop**, and Kalibr practised
+on a dataset. Bench work moves to the fall, but arrives with no learning curve attached.

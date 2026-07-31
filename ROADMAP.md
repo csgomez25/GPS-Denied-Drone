@@ -180,14 +180,52 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ---
 
-## Start RIGHT NOW (updated 2026-07-30, after Day 4)
-1. ⬜ **Close the Phase-1 gate: swap `fake_world` for `/projected_map`.** Day 5 landed 2026-07-30 — `octomap_server` maps three obstacles to their true positions and heights, with open ground and the area behind the aircraft both 0.0% occupied. `planner_node` already consumes `nav_msgs/OccupancyGrid`, so this is a rewire, not new code, and the one Day-5 defect is already fixed.
-2. 🔄 **Day 6 — pipeline done, number invalid.** `icp_odometry` runs at 28 Hz off the depth cloud with loop closure structurally off, scored against PX4 ground truth — but the drift figure is not a benchmark (`VIO.md` §3b) for two independent reasons: the "ground truth" is EKF2's own estimate (PX4 exports no groundtruth over DDS), and ICP reports ratio=0 every frame — it never registered a scan. Get real ground truth from a Gazebo PosePublisher, fix the registration, then re-measure. Front-end **installed: `rtabmap_ros`**. Run it in the forest world with loop closure OFF, scored against PX4 ground truth. Note this measures *plumbing*, not the hard part — the sim's camera-IMU extrinsic is exact and known, whereas on hardware calibrating it is the actual work. That is why the offline OpenVINS/EuRoC ladder (item 6) stays the real deliverable.
-3. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
-4. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
-5. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
-6. ⬜ **VIO ladder is behind.** You've used DPVO as a black box for the research track but haven't done steps 1–3 (Labbe's filters → OpenVINS on EuRoC → your own toy VI-EKF). That ladder *is* the career deliverable; the sim work won't produce it for you — and now that cuVSLAM is out of the sim path, even less of it comes for free.
+## Start RIGHT NOW (re-prioritised 2026-07-31 — hardware is budget-locked)
 
-*(Done: all code under git and **pushed** — lab notebook to `GPS-Denied-Drone`, both working trees merged into the private `GPS_Denied` repo; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6; both Day-4 blockers — the TF conflict and the Gazebo RAM leak — found and fixed.)*
+> **What changed.** Parts are ~90% decided (Orin Nano Super + D435i) but the budget
+> does not unlock until the course starts. Nothing can be ordered. So the binding
+> constraint is no longer money — it is **fall time**, which goes to assembly,
+> bring-up, calibration, integration and mentoring two new teammates. The remaining
+> summer exists to climb the learning curves *now*, because the fall has no room for
+> them. See [SUMMER.md](./SUMMER.md).
+>
+> Consequence: **the Phase-1 sim gate no longer gates anything.** It existed to decide
+> "is it safe to buy hardware?" and budget already decided that. Close it for the
+> milestone; don't let it displace items 1–3.
 
-> Don't buy the rest of the BOM until the Phase-1 sim gate passes.
+1. ⭐ **VIO ladder, steps 1–3** (Labbé's filters → OpenVINS on EuRoC → your own toy
+   VI-EKF). This *is* the career deliverable and the sim work will never produce it.
+   Entirely offline, so parts cannot block it. `~/DPVO` already carries
+   `evaluate_euroc.py` and EuRoC logs. **Highest-value hours available this summer.**
+2. ⭐ **De-risk Isaac ROS on the laptop.** Every decision so far deferred it — octomap
+   instead of nvblox, rtabmap instead of cuVSLAM — and BUILD §0.6 flags it as
+   "unverified for longer". The dev box can run the container (RTX A3000 6 GB, driver
+   595.71, 308 GB free); Docker and the NVIDIA Container Toolkit are not installed.
+   Install, pull, run the cuVSLAM quickstart on a dataset. This also discharges the
+   §0.5 ⚠️ support-matrix item, which must **not** wait for the budget: if Isaac ROS ×
+   Jazzy × Orin Nano needs Humble, that invalidates a lot of Jazzy-specific work and
+   July is a much cheaper time to find out than October.
+3. **Practice Kalibr on a dataset.** Camera–IMU calibration is precisely what sim
+   cannot teach — the sim extrinsic is exact and free, the hardware one is vibration,
+   thermal drift and a fiddly toolchain. EuRoC ships calibration data.
+4. ⬜ **Close the Phase-1 gate**: swap `fake_world` for `/projected_map`. A rewire, not
+   new code — `planner_node` already consumes `nav_msgs/OccupancyGrid`, and its
+   unknown-space policy is now measured on two real maps.
+5. ⬜ **Research track**: the 2-DOF along-track + heading matcher; then RPE and a paired
+   significance test.
+6. 🟡 **Day 6 — timebox it.** `icp_odometry` runs, but the reference is EKF2's own
+   estimate and ICP registers nothing (`VIO.md` §3b). Worth one session to get real
+   ground truth from a Gazebo `PosePublisher` and one attempt at the `ratio=0` cause —
+   then move on regardless. rtabmap does not ship; cuVSLAM does.
+7. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course.
+
+*(Deferred to the fall with the budget: verifying Orin Nano vs. the old Nano, and
+ordering the D435i and the X500 kit.)*
+
+*(Done: all code under git and pushed; SIM_WEEK1 Days 1–5; the octomap and rtabmap
+scope decisions recorded in BUILD.md §0.6; the Day-4 TF conflict, the Gazebo RAM leak,
+the octomap ground filter, and the planner's unknown-space policy — all found, fixed
+and measured.)*
+
+> Buying is deferred to the fall by budget, not by the gate. When funds unlock,
+> verify the §0.5 ⚠️ items first, then order the long-lead D435i.
