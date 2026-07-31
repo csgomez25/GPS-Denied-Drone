@@ -92,14 +92,18 @@ octomap needs is live: `/depth_camera/points` at 24.5 Hz, `/clock`, and a real
 and `ros-jazzy-octomap-rviz-plugins` are installed. So this decision is not just
 cheaper on paper — the whole input side of it is already working.
 
-One caveat the same session surfaced, which cuts against the "sim is the cheap path"
-assumption: **`gz sim` leaked to ~30 GB of system RAM and was OOM-killed twice**, the
-second time taking the desktop session down (`DEPTH_SIM.md` §4b). That is a 31 GB
-system-RAM limit, *separate* from the 6 GB VRAM limit argued above. It caps sim
-sessions at 10–20 minutes with the depth airframe, which matters much more for mapping
-than it did for a 60 s capture. It does not change this decision — nvblox would face
-the same host — but it is the next thing that can make Day 5 expensive, and it is a
-laptop problem that will not follow the project to the Jetson.
+One caveat surfaced the same session and was then **resolved**: `gz sim` grew at a flat
+180 MB/s and was OOM-killed twice, the second time taking the desktop session down.
+Root cause was the OakD-Lite's **unused 1920×1080 RGB camera**, which Gazebo renders
+unconditionally — not scene complexity and not VRAM. An overlay model deletes that one
+sensor and the sim now holds ~490 MB indefinitely, or 653 MB in the 37-tree forest
+world (`DEPTH_SIM.md` §4b). Note this was **system RAM**, a separate limit from the
+6 GB VRAM argued above; the two have confusingly similar symptoms.
+
+The general lesson is worth carrying to the Jetson, where headroom is far tighter:
+**an unused sensor still costs full price.** Nothing subscribed to that RGB topic and
+`always_on=0` did not stop it either — a declared sensor renders regardless. Delete
+what you do not need from the model rather than leaving it unsubscribed.
 
 ---
 
