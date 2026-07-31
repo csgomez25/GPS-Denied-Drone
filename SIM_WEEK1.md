@@ -8,7 +8,7 @@
 
 ---
 
-## Progress (as of 2026-07-30) — **~60% through the gate**
+## Progress (as of 2026-07-30) — **~75% through the gate**
 
 | Day | Milestone | Status | Evidence / blocker |
 |---|---|---|---|
@@ -17,11 +17,11 @@
 | 2 | PX4 SITL + Gazebo, manual flight | ✅ | gz-harmonic 8.12 + `~/PX4-Autopilot` builds and flies |
 | 3 | Offboard waypoint from ROS 2 | ✅ | `~/ws_px4` builds `px4_msgs` + `px4_ros_com` + `gps_denied_autonomy` |
 | 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
-| 5 | Occupancy map from depth | ⬜ **next** | path decided: `octomap_server`, not nvblox (BUILD.md §0.6). Packages installed. |
+| 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 spawned obstacles mapped, open ground free — `MAPPING.md`, `results/octomap_day5.png`. One open defect: phantom cells behind the aircraft. |
 | 6 | VIO + drift number | ⬜ | not started in sim. Front-end not yet chosen (BUILD.md §0.6). DPVO runs offline on nuScenes. |
 | 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
 
-**What's actually done:** Days 1–4 fully, and Day 7's *own code* — `planner_node`,
+**What's actually done:** Days 1–5 fully, and Day 7's *own code* — `planner_node`,
 `offboard_manager`, `astar`, `fake_world` all built, and the closed loop flew
 end-to-end in SITL (`~/ws_px4/src/gps_denied_autonomy/SITL_FLIGHT.md`).
 
@@ -31,10 +31,26 @@ deliver, captured *during* an autonomous square with `px4_tf_publisher` supplyin
 real moving `map -> base_link -> camera_link`. Runbook + numbers:
 `~/ws_px4/src/gps_denied_autonomy/DEPTH_SIM.md`.
 
-**What's left is Days 5 and 6.** Until those land, the loop plans on a hand-written
-grid rather than a map it built from a sensor, so the "Week-1 done when" bar below is
-**not** met. Day 5 is now unblocked — octomap consumes the `PointCloud2` the bridge
-already publishes, and emits the `OccupancyGrid` type `planner_node` already accepts.
+**Day 5 closed on 2026-07-30.** `octomap_server` builds a live map from
+`/depth_camera/points`: three deliberately asymmetric obstacles all map to their true
+positions, open ground inside the flight square comes back **0.0% occupied**, and the
+sim holds ~500 MB for the whole run. Details, including two silent-failure traps
+(wrong octomap parameter spellings; a sim-time/wall-time clock mismatch that drops
+every cloud), are in `MAPPING.md`.
+
+**What's left is Day 6, plus one swap.** `planner_node` already consumes
+`nav_msgs/OccupancyGrid` and `/projected_map` is one — pointing it there instead of
+`fake_world` and flying that mission *is* the Phase-1 gate. Do that only after the
+open defect below is cleared, or the planner inherits phantom obstacles.
+
+> **⚠️ Open defect from Day 5:** ~18% of mapped cells *behind* the aircraft are
+> occupied, where nothing exists. The map itself indicts yaw control rather than
+> mapping: `offboard_manager` commands `yaw = 0.0` and the camera is fixed
+> forward-facing, so a vehicle holding that heading could only carve a north-facing
+> **wedge** of free space — but the observed free space is a near-complete **disc**,
+> and free space only comes from raycasting. Consistent with the 35° yaw seen in
+> Day 4's `tf2_echo`. First diagnostic: log yaw from `/fmu/out/vehicle_odometry`
+> across the square and compare to the commanded value.
 
 > **Days 5–6 decided (BUILD.md §0.6):** `octomap_server` for occupancy in sim; Isaac
 > ROS (nvblox + cuVSLAM) stays the *flight* stack on the Jetson. Isaac ROS ships only
@@ -206,7 +222,10 @@ Two things the original check asked for that were **not** done, and why:
 
 ---
 
-## Day 5 — Occupancy map from depth ← **next**
+## Day 5 — Occupancy map from depth — ✅ **done 2026-07-30**
+
+> Full runbook, results and the two silent-failure traps:
+> **`gps_denied_autonomy/MAPPING.md`**. Summary below.
 
 > **Revised 2026-07-30: `octomap_server`, not nvblox.** Full rationale and accepted
 > costs in [BUILD.md §0.6](./BUILD.md). nvblox stays the *flight* stack on the Jetson;
@@ -222,11 +241,23 @@ Everything octomap needs is already published by the Day-4 bridge:
 | `use_sim_time` | `/clock` |
 
 ```bash
-sudo apt install -y ros-jazzy-octomap-server ros-jazzy-octomap-rviz-plugins  # done
-ros2 run octomap_server octomap_server_node --ros-args \
-  -p resolution:=0.10 -p frame_id:=map -p use_sim_time:=true \
-  -r cloud_in:=/depth_camera/points
+python3 gps_denied_autonomy/sim/spawn_obstacles.py   # geometry to actually map
+ros2 launch gps_denied_autonomy octomap.launch.py    # tuned params, see MAPPING.md
+ros2 run gps_denied_autonomy px4_tf_publisher --ros-args -p use_sim_time:=true
+python3 gps_denied_autonomy/check_octomap.py results/octomap_day5.png 20
 ```
+
+**Two traps here, both of which fail *silently*** — nodes run, topics exist,
+`ros2 topic hz` looks healthy, and the map stays empty:
+
+1. **`use_sim_time:=true` on `px4_tf_publisher`.** The cloud is stamped in sim time
+   (~68 s) while the TF publisher defaults to wall clock (~1.78e9), so octomap drops
+   every cloud as *"earlier than all the data in the transform cache."*
+2. **octomap's parameter names.** It ignores unknown ones without warning. The
+   plausible-looking `filter_ground` and `pointcloud_min_z` are **wrong** — the real
+   names are `filter_ground_plane` and `point_cloud_min_z`. Get them wrong and the
+   ground plane is mapped as one solid obstacle. `ros2 param list /octomap_server`
+   against a running node is the only reliable check.
 
 `octomap_server` publishes **`/projected_map`** as a `nav_msgs/OccupancyGrid` — the
 exact type `planner_node` already consumes. That is the whole point: `fake_world`'s
@@ -238,9 +269,16 @@ correct, and the sim now holds a flat ~490 MB instead of dying in minutes — so
 mapping run is finally possible. Just remember the `GZ_SIM_RESOURCE_PATH` export, or
 the RGB leak comes back.
 
-**✅ Success check:** an obstacle dropped into the Gazebo world appears as occupied
-cells in `/projected_map`, and the map persists correctly as the drone flies past it
-(that last part is what actually tests the TF).
+**✅ Success check — met 2026-07-30.** Three asymmetric obstacles spawned north of the
+flight square all map to their true positions (contrast 4.6–9.5× vs. the map as a
+whole), open ground inside the square comes back **0.0% occupied**, and gz holds
+492 → 501 MB across the run. Evidence: `results/octomap_day5.png`.
+
+> Counting occupied cells near an obstacle is *not* a real check — on a map that is
+> 90% occupied (what a broken ground filter produces) every window has hits and
+> everything "passes". `check_octomap.py` also requires a **control patch** of open
+> ground to come back free, and normalises each obstacle's density by what its own
+> geometry allows. That is what caught the ground-filter bug.
 
 <details>
 <summary>Original nvblox route — deferred to Phase 2 on the Jetson</summary>

@@ -2,10 +2,11 @@
 
 A small autonomous quadrotor that navigates and avoids obstacles **without GPS and fully offline** (all compute onboard), across indoor, outdoor, and under-structure environments. Senior design project; this folder is the planning + lab-notebook home.
 
-> Status (2026-07-30): **sim bring-up, ~60% through the Phase-1 gate.** The
+> Status (2026-07-30): **sim bring-up, ~75% through the Phase-1 gate.** The
 > planning→flight half of the autonomy loop flew autonomously in PX4 SITL on
-> 2026-07-13, and the depth camera now streams into ROS 2 (Day 4, 2026-07-30).
-> What's left is mapping and VIO. Still no flying hardware — by design.
+> 2026-07-13; the depth camera now streams into ROS 2 (Day 4) and builds a live
+> occupancy map with obstacles in their true positions (Day 5). What's left is
+> VIO, and pointing the planner at the perceived map. No flying hardware — by design.
 > See [Where things stand](#where-things-stand).
 
 ---
@@ -74,7 +75,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 
 ## Where things stand
 
-### Phase-1 sim gate (SIM_WEEK1) — **~60%**
+### Phase-1 sim gate (SIM_WEEK1) — **~75%**
 
 | Day | Milestone | Status |
 |---|---|---|
@@ -82,7 +83,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 2 | PX4 SITL + Gazebo Harmonic, manual flight | ✅ gz-harmonic 8.12, PX4 builds + flies |
 | 3 | Offboard waypoint commanded from ROS 2 | ✅ 2026-07-13 |
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
-| 5 | Occupancy map from depth | ⬜ next — now **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)) |
+| 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped |
 | 6 | VIO + a drift number | ⬜ not started in sim; front-end undecided |
 | 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
 
@@ -96,13 +97,25 @@ and IMU all deliver at rate, captured *during* an autonomous square with a real 
 `map -> base_link -> camera_link` TF. Runbook and numbers:
 `~/ws_px4/src/gps_denied_autonomy/DEPTH_SIM.md`.
 
-**What's still missing is mapping and odometry.** The map is `fake_world`'s synthetic
-wall, and pose comes from PX4's own perfect sim state. The gate text ("map built live
-from depth *and* cuVSLAM producing a validated odometry track") is not met — and per
-[BUILD.md §0.6](./BUILD.md) it will be met with **octomap rather than nvblox** in sim,
-so the eventual claim must be "architecture proven," not "nvblox validated." Day 5 is
-otherwise unblocked: octomap consumes the point cloud the bridge already publishes and
-emits the `OccupancyGrid` type `planner_node` already accepts.
+**The map is now built from the sensor (Day 5, 2026-07-30).** `octomap_server` consumes
+`/depth_camera/points` and publishes `/projected_map`: three deliberately asymmetric
+obstacles all map to their true positions (4.6–9.5× denser than the map as a whole),
+and a control patch of open ground comes back **0.0% occupied**. Runbook, the two
+silent-failure traps, and the open defect: `gps_denied_autonomy/MAPPING.md`.
+
+**What's still missing is odometry, and one rewire.** Pose still comes from PX4's own
+perfect sim state, so the gate text ("map built live from depth *and* cuVSLAM producing
+a validated odometry track") is half met. Per [BUILD.md §0.6](./BUILD.md) the map half
+was met with **octomap rather than nvblox**, so the claim is "architecture proven," not
+"nvblox validated." The rewire is pointing `planner_node` at `/projected_map` instead of
+`fake_world` — no new code, since it already consumes that message type.
+
+**One open defect blocks that rewire.** ~18% of mapped cells *behind* the aircraft come
+back occupied where nothing exists. The map itself indicts yaw control rather than
+mapping: a vehicle actually holding the commanded `yaw = 0` with a fixed forward camera
+could only carve a north-facing **wedge** of free space, but the observed free space is
+a near-complete **disc** — and free space only comes from raycasting. Phantom obstacles
+are precisely what a planner must not inherit.
 
 **Two blockers found during Day 4, both now fixed.** (1) `depth_bridge.launch.py`
 defaulted to a placeholder TF that conflicted with `px4_tf_publisher`, giving
@@ -146,12 +159,11 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. ⬜ **[SIM_WEEK1](./SIM_WEEK1.md) Day 5 — occupancy map from depth**, via
-   `octomap_server` (installed). Now unblocked — both Day-4 blockers are fixed and the
-   sim holds a flat ~490 MB, so a long mapping run works. Drop an obstacle into the
-   world first; every depth capture so far is over an empty ground plane, so nothing has
-   been within 3 m of the camera. Then unplug `fake_world` and point `planner_node` at
-   `/projected_map` — that swap is the Phase-1 gate.
+1. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Day 5 built
+   the map; the remaining step is unplugging `fake_world` and flying a mission planned
+   on a **perceived** map. First clear the Day-5 defect (phantom cells behind the
+   aircraft, `MAPPING.md` §4) or the planner inherits them — diagnostic is one flight:
+   log yaw from `/fmu/out/vehicle_odometry` and compare to the commanded `yaw = 0`.
 2. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
 3. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
 4. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*

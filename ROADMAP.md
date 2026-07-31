@@ -59,15 +59,17 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ---
 
-## Phase 1 — Full autonomy stack in simulation  (Months 1–2) — 🔄 **~50%**
+## Phase 1 — Full autonomy stack in simulation  (Months 1–2) — 🔄 **~70%**
 **Build:** Day-7 loop fully fleshed out — cuVSLAM drift study, nvblox map, A* planner, offboard manager. Obstacle avoidance working in sim. (This is the §6 gate before buying hardware.)
 
 > **Status 2026-07-30:** ✅ **A\* planner** (`astar.py`, validated headlessly and on real
 > nuScenes HD-map rasters) and ✅ **offboard manager** are done and flew the closed loop
-> autonomously in SITL on 2026-07-13. ✅ **Depth into ROS 2** closed 2026-07-30. ⬜ **the
-> map** and ⬜ **the drift study** are not started — that's the missing half. The loop
-> currently plans on a synthetic grid, so "obstacle avoidance in sim" is proven for
-> *planning→flight*, not for *perception→flight*.
+> autonomously in SITL on 2026-07-13. ✅ **Depth into ROS 2** and ✅ **the occupancy
+> map** both closed 2026-07-30 — octomap maps three spawned obstacles to their true
+> positions with open ground free. ⬜ **The drift study** is not started. The loop
+> still *plans* on a synthetic grid, so "obstacle avoidance in sim" is proven for
+> *planning→flight*; the remaining rewire (point `planner_node` at `/projected_map`)
+> is what makes it *perception→flight*.
 >
 > **Scope change (BUILD.md §0.6):** the sim map is now **octomap**, not nvblox, and the
 > VIO front-end is undecided. Isaac ROS remains the Jetson flight stack. This makes
@@ -179,8 +181,8 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 ---
 
 ## Start RIGHT NOW (updated 2026-07-30, after Day 4)
-1. ⬜ **SIM_WEEK1 Day 5 — occupancy map from depth** via `octomap_server`, then swap `fake_world` out for `/projected_map`. That swap *is* the Phase-1 gate. Both Day-4 blockers are now cleared — the TF tree, and the Gazebo RAM leak (root-caused to the unused 1920×1080 RGB camera, fixed by an overlay model that deletes it) — so the sim holds a flat ~490 MB and a long mapping run is finally practical. Drop an obstacle into the world first; every depth capture so far is over bare ground.
-2. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 6). Doesn't block Day 5; `px4_tf_publisher` is the interface contract.
+1. ⬜ **Close the Phase-1 gate: swap `fake_world` for `/projected_map`.** Day 5 landed 2026-07-30 — `octomap_server` maps three spawned obstacles to their true positions with open ground free. `planner_node` already consumes `nav_msgs/OccupancyGrid`, so this is a rewire, not new code. Clear the Day-5 defect first (phantom cells behind the aircraft, `MAPPING.md` §4), or the planner inherits phantom obstacles.
+2. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 6). `px4_tf_publisher` is the interface contract, so this does not block the gate above.
 3. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
 4. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
 5. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
