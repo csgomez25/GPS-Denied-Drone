@@ -18,7 +18,7 @@
 | 3 | Offboard waypoint from ROS 2 | ✅ | `~/ws_px4` builds `px4_msgs` + `px4_ros_com` + `gps_denied_autonomy` |
 | 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
 | 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 obstacles mapped at 21–37× map density, open ground **and** the area behind the aircraft 0.0% occupied — `MAPPING.md`, `results/octomap_day5.png`, `results/octomap_3view.png` |
-| 6 | VIO + drift number | ⬜ | not started in sim. Front-end not yet chosen (BUILD.md §0.6). DPVO runs offline on nuScenes. |
+| 6 | VIO + drift number | 🔄 **next** | `rtabmap_ros` installed 2026-07-30; plan is `icp_odometry` on the depth cloud in the **forest** world (trees give ICP the geometry a flat plane does not), scored against PX4 ground truth |
 | 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
 
 **What's actually done:** Days 1–5 fully, and Day 7's *own code* — `planner_node`,
@@ -64,7 +64,15 @@ map contains only real obstacles.
 > Toolkit (neither installed) plus a GPU mapper on 6 GB of VRAM — days of yak-shaving
 > on tooling that gets discarded when the Jetson arrives. Read §0.6 for what this
 > costs: Phase-1 tuning numbers will **not** transfer to nvblox, and this does not
-> count as "nvblox validated." The Day-6 VIO front-end is still undecided.
+> count as "nvblox validated."
+>
+> **Day-6 front-end decided (2026-07-30): `rtabmap_ros`.** Installed and available as
+> `rtabmap_odom icp_odometry`. Chosen because it is apt-installable with no Docker, runs
+> on the depth cloud we already publish, and needs no RGB — which matters, since the
+> overlay model deletes the RGB camera to stop the 180 MB/s leak. It must run with
+> **loop closure OFF**: rtabmap is SLAM, and loop closure corrects exactly the drift
+> Day 6 exists to measure. DPVO stays where it earns its place, on the research track;
+> the OpenVINS/EuRoC ladder stays the offline career deliverable.
 
 > **Two blockers found during Day 4 — both now fixed (2026-07-30).**
 > 1. ✅ **Invalid TF tree.** `depth_bridge.launch.py` defaulted `static_tf:=true`,
@@ -302,18 +310,29 @@ Configure nvblox to also publish a **2D ESDF/distance-map slice at flight altitu
 
 ---
 
-## Day 6 — VIO with cuVSLAM
+## Day 6 — VIO (rtabmap `icp_odometry`, not cuVSLAM)
 
-> **Front-end undecided as of 2026-07-30.** cuVSLAM has the same Docker/VRAM problem
-> that moved Day 5 to octomap (BUILD.md §0.6). Candidates: `rtabmap_ros` (apt, no
-> Docker), staying with **DPVO** (already running offline on nuScenes), or treating VIO
-> as the offline OpenVINS/EuRoC ladder in ROADMAP.md instead of a sim task. Whatever it
-> is, it publishes odometry behind the same `map -> base_link` TF that
-> `px4_tf_publisher` supplies today — that node is the interface contract, so this
-> decision does not block Day 5.
+> **Decided 2026-07-30: `rtabmap_ros`, installed.** cuVSLAM has the same Docker/VRAM
+> problem that moved Day 5 to octomap (BUILD.md §0.6). `rtabmap_odom icp_odometry` is
+> apt-installable, needs no Docker, and runs on the depth cloud already being published
+> — which matters because the overlay model **deletes the RGB camera** to stop the
+> 180 MB/s leak, so no feature-based front-end has an image to work with.
+>
+> **Run it with loop closure OFF.** rtabmap is a SLAM system; loop closure corrects
+> precisely the drift this day exists to measure. A drift number from a loop-closing
+> SLAM system is not a VIO drift number.
+>
+> **Use the forest world.** ICP on a flat plane with three boxes is *degenerate* — the
+> ground constrains only 3 DOF and the estimate slides freely along it. Trees constrain
+> all directions. This is not cosmetic; it is the difference between a drift number and
+> a slow slide into nonsense.
+>
+> Whatever the front-end, it publishes odometry behind the same `map -> base_link` TF
+> that `px4_tf_publisher` supplies today — that node is the interface contract.
 >
 > Note the sim's IMU is the **body** IMU on `base_link`, not a camera-rigid one
 > (see Day 4). Usable here because the camera joint is fixed and the extrinsic exact.
+> On hardware that calibration is real work; sim passing does not retire it.
 
 Launch **Isaac ROS cuVSLAM** on the sim stereo/depth + IMU; confirm it publishes an odometry estimate (`/visual_slam/tracking/odometry` or via TF). Compare its track against PX4 sim ground-truth pose over a 30–60 s flight and write down a first **drift number** (e.g. cm of position error after a loop). This is your baseline before the sensor ever flies.
 
@@ -430,6 +449,8 @@ Simulated X500 autonomously flies start → goal, avoiding one inserted obstacle
 - **Frames/TF:** PX4 is NED, ROS is ENU. The px4_ros_com helpers handle conversions — respect them or your waypoints go sideways.
 - **Gazebo *sensor* frames are x-forward**, while ROS's optical convention is z-forward. Confirmed on the depth cloud, Day 4. Different axis trap from the NED/ENU one above, and it bites the mapper rather than the controller.
 - **One child frame, one parent.** Running two publishers that both parent `camera_link` produces an invalid TF tree that tf2 resolves nondeterministically — and near the origin it looks *fine*. Hit on Day 4; see DEPTH_SIM.md §4a.
+- **Point the camera where the information is.** Mounted level at 3 m, half the depth frame is sky and grazing-incidence ground returns defeat octomap's plane filter — 18.4% of open ground came back *occupied*. A 20° downward tilt takes that to zero and lifts frame utilisation 52% → 78%. Tilt beats flying lower, because lowering the aircraft does not move the horizon.
+- **A sensor's mounting angle lives in two places.** The model (what the sim renders) and the TF (what the stack believes). Disagree and every point is rotated about the camera, which looks like odometry drift rather than a mounting error.
 - **Watch system RAM, not just VRAM.** `gz sim` with the depth airframe grew at 180 MB/s and was OOM-killed twice on 2026-07-30, the second time taking the desktop session down. The 6 GB VRAM limit is a *separate* constraint with a confusingly similar symptom. Root cause was the unused 1920×1080 RGB camera; fixed by an overlay model (`DEPTH_SIM.md` §4b).
 - **An unused sensor still costs you everything.** Nothing subscribed to that RGB topic, and `always_on=0` didn't stop it either — Gazebo renders declared sensors regardless. If you don't need a sensor, delete it from the model rather than leaving it unsubscribed.
 - **You have two Gazebo installs.** `.bashrc` sources ROS, which sets `GZ_CONFIG_PATH` to the ROS-vendored **8.11.0**; apt has **8.14.0**. Check `gz sim --version` before blaming (or reporting) a version-specific bug.

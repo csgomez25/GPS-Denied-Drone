@@ -73,9 +73,18 @@ Day 6 explicitly sanctions ("let SITL use its own state, run VIO in parallel"). 
 node is the **interface contract**: VIO later replaces PX4 state behind the same
 `map → base_link → camera_link` TF, and nothing downstream changes.
 
-**Day-6 VIO in sim is now the open sub-decision** — `rtabmap_ros` (apt, no Docker) vs.
-staying with DPVO (already running offline) vs. treating VIO as the offline
-OpenVINS/EuRoC ladder in ROADMAP. Not yet decided.
+**Day-6 VIO in sim — decided 2026-07-30: `rtabmap_ros`**, installed. Same reasoning as
+the mapper: apt-installable, no Docker, no GPU contention. Two constraints shaped it.
+First, the overlay model that fixes the RAM leak **deletes the RGB camera**, so no
+feature-based front-end has an image to work with — `icp_odometry` on the depth cloud
+does not need one. Second, rtabmap is a *SLAM* system, so it must run with **loop
+closure off**: loop closure corrects exactly the drift Day 6 exists to measure.
+
+Same caveat as octomap-vs-nvblox, and it should be stated the same way in the report:
+this validates the **pipeline**, not cuVSLAM. It also validates less than it appears
+to — the sim's camera-IMU extrinsic is exact and known, whereas on hardware calibrating
+it (Kalibr, vibration, thermal drift) is the actual work. DPVO stays on the research
+track; the offline OpenVINS/EuRoC ladder stays the career deliverable.
 
 **Confirmed later the same day (2026-07-30).** SIM_WEEK1 Day 4 passed, and every input
 octomap needs is live: `/depth_camera/points` at 24.5 Hz, `/clock`, and a real

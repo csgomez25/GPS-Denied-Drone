@@ -84,7 +84,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 3 | Offboard waypoint commanded from ROS 2 | ✅ 2026-07-13 |
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
 | 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped, 0.0% spurious |
-| 6 | VIO + a drift number | ⬜ not started in sim; front-end undecided |
+| 6 | VIO + a drift number | 🔄 next — front-end decided: **rtabmap `icp_odometry`**, installed |
 | 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
 
 **The Day-7 loop already flies.** On 2026-07-13 the X500 armed, took off, threaded a
@@ -104,6 +104,17 @@ as a whole), and a control patch of open ground comes back **0.0% occupied**. Ru
 the two silent-failure traps, and the defect that was found and fixed:
 `gps_denied_autonomy/MAPPING.md`. Visuals: `results/octomap_day5.png`,
 `results/octomap_3view.png`, and a one-page `results/progress_board.png`.
+
+**The camera is now tilted 20° down (2026-07-30).** Mounted level, half the depth frame
+was sky and grazing-incidence ground returns defeated octomap's plane filter — 18.4% of
+the open ground the drone flew over came back *occupied*. At 20° that is zero, frame
+utilisation goes 52% → 78%, and 26% more area gets mapped per flight. Tilt beats flying
+lower: lowering the aircraft does not move the horizon.
+
+**PX4's `forest` world now maps too** — 25 oaks, 5 pines, 60 469 occupied voxels up to
+6.2 m. It costs Gazebo 653 MB vs 490 MB for the empty world, and it is the world Day 6
+needs: ICP odometry on a flat plane is degenerate, whereas trees constrain every
+direction.
 
 **What's still missing is odometry, and one rewire.** Pose still comes from PX4's own
 perfect sim state, so the gate text ("map built live from depth *and* cuVSLAM producing
@@ -161,16 +172,20 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Day 5 built
-   the map and its one defect is fixed, so this is unblocked — unplug `fake_world` and
-   fly a mission planned on a **perceived** map. No new code: the planner already
-   consumes that message type.
-2. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
-3. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
-4. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*
-5. ⬜ **Research track:** build the 2-DOF (along-track + heading) matcher — the cross-track
+1. 🔄 **Day 6 — VIO drift number.** `rtabmap_ros` is installed; run `icp_odometry` on
+   the depth cloud in the **forest** world with **loop closure off** (it is SLAM, and
+   loop closure corrects the very drift being measured), scored against PX4's perfect
+   ground truth.
+2. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Unplug
+   `fake_world` and fly a mission planned on a **perceived** map. No new code — the
+   planner already consumes that message type, and its unknown-space policy is now
+   measured on two real maps ([PLANNING](https://github.com/csgomez25/GPS_Denied)).
+3. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
+4. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
+5. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*
+6. ⬜ **Research track:** build the 2-DOF (along-track + heading) matcher — the cross-track
    line is closed out with evidence. See `bev_gps_denied/README.md` in the code repo.
-6. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera) + begin the VIO ladder in [ROADMAP.md](./ROADMAP.md).
+7. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera) + begin the VIO ladder in [ROADMAP.md](./ROADMAP.md).
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes (except the long-lead RealSense/Jetson).
 

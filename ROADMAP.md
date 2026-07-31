@@ -72,7 +72,7 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 > is what makes it *perception→flight*.
 >
 > **Scope change (BUILD.md §0.6):** the sim map is now **octomap**, not nvblox, and the
-> VIO front-end is undecided. Isaac ROS remains the Jetson flight stack. This makes
+> VIO front-end is **rtabmap `icp_odometry`**, not cuVSLAM. Isaac ROS remains the Jetson flight stack. This makes
 > Phase 1 reachable on the laptop, but it means Phase-1 tuning numbers **will not
 > transfer** to nvblox — budget re-tuning in Phase 2, and don't describe this phase as
 > validating nvblox or cuVSLAM.
@@ -182,7 +182,7 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 
 ## Start RIGHT NOW (updated 2026-07-30, after Day 4)
 1. ⬜ **Close the Phase-1 gate: swap `fake_world` for `/projected_map`.** Day 5 landed 2026-07-30 — `octomap_server` maps three obstacles to their true positions and heights, with open ground and the area behind the aircraft both 0.0% occupied. `planner_node` already consumes `nav_msgs/OccupancyGrid`, so this is a rewire, not new code, and the one Day-5 defect is already fixed.
-2. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 6). `px4_tf_publisher` is the interface contract, so this does not block the gate above.
+2. 🔄 **Day 6 — VIO drift number.** Front-end **decided and installed: `rtabmap_ros`** (`icp_odometry`). Run it in the forest world with loop closure OFF, scored against PX4 ground truth. Note this measures *plumbing*, not the hard part — the sim's camera-IMU extrinsic is exact and known, whereas on hardware calibrating it is the actual work. That is why the offline OpenVINS/EuRoC ladder (item 6) stays the real deliverable.
 3. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
 4. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
 5. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
