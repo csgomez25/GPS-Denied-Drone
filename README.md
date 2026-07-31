@@ -83,7 +83,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 2 | PX4 SITL + Gazebo Harmonic, manual flight | ✅ gz-harmonic 8.12, PX4 builds + flies |
 | 3 | Offboard waypoint commanded from ROS 2 | ✅ 2026-07-13 |
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
-| 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped |
+| 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped, 0.0% spurious |
 | 6 | VIO + a drift number | ⬜ not started in sim; front-end undecided |
 | 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
 
@@ -99,9 +99,11 @@ and IMU all deliver at rate, captured *during* an autonomous square with a real 
 
 **The map is now built from the sensor (Day 5, 2026-07-30).** `octomap_server` consumes
 `/depth_camera/points` and publishes `/projected_map`: three deliberately asymmetric
-obstacles all map to their true positions (4.6–9.5× denser than the map as a whole),
-and a control patch of open ground comes back **0.0% occupied**. Runbook, the two
-silent-failure traps, and the open defect: `gps_denied_autonomy/MAPPING.md`.
+obstacles all map to their true positions and **heights** (21–37× denser than the map
+as a whole), and a control patch of open ground comes back **0.0% occupied**. Runbook,
+the two silent-failure traps, and the defect that was found and fixed:
+`gps_denied_autonomy/MAPPING.md`. Visuals: `results/octomap_day5.png`,
+`results/octomap_3view.png`, and a one-page `results/progress_board.png`.
 
 **What's still missing is odometry, and one rewire.** Pose still comes from PX4's own
 perfect sim state, so the gate text ("map built live from depth *and* cuVSLAM producing
@@ -110,12 +112,12 @@ was met with **octomap rather than nvblox**, so the claim is "architecture prove
 "nvblox validated." The rewire is pointing `planner_node` at `/projected_map` instead of
 `fake_world` — no new code, since it already consumes that message type.
 
-**One open defect blocks that rewire.** ~18% of mapped cells *behind* the aircraft come
-back occupied where nothing exists. The map itself indicts yaw control rather than
-mapping: a vehicle actually holding the commanded `yaw = 0` with a fixed forward camera
-could only carve a north-facing **wedge** of free space, but the observed free space is
-a near-complete **disc** — and free space only comes from raycasting. Phantom obstacles
-are precisely what a planner must not inherit.
+**The one defect found was fixed the same day.** ~18% of cells *behind* the aircraft
+came back occupied where nothing exists. Plotting the occupied voxel centres in plan +
+two elevations identified them as a sheet of ground returns at Up ≈ 0.2 m, not phantom
+structure — invisible in the 2D map, obvious in 3 views. Raising `occupancy_min_z` took
+them to **0.0%** and sharpened obstacle contrast from 4.6–9.5× to **21–37×**. So the
+rewire is unblocked.
 
 **Two blockers found during Day 4, both now fixed.** (1) `depth_bridge.launch.py`
 defaulted to a placeholder TF that conflicted with `px4_tf_publisher`, giving
@@ -160,10 +162,9 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 ## Do next (immediate)
 
 1. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Day 5 built
-   the map; the remaining step is unplugging `fake_world` and flying a mission planned
-   on a **perceived** map. First clear the Day-5 defect (phantom cells behind the
-   aircraft, `MAPPING.md` §4) or the planner inherits them — diagnostic is one flight:
-   log yaw from `/fmu/out/vehicle_odometry` and compare to the commanded `yaw = 0`.
+   the map and its one defect is fixed, so this is unblocked — unplug `fake_world` and
+   fly a mission planned on a **perceived** map. No new code: the planner already
+   consumes that message type.
 2. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
 3. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
 4. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*

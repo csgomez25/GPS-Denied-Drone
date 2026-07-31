@@ -17,7 +17,7 @@
 | 2 | PX4 SITL + Gazebo, manual flight | ✅ | gz-harmonic 8.12 + `~/PX4-Autopilot` builds and flies |
 | 3 | Offboard waypoint from ROS 2 | ✅ | `~/ws_px4` builds `px4_msgs` + `px4_ros_com` + `gps_denied_autonomy` |
 | 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
-| 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 spawned obstacles mapped, open ground free — `MAPPING.md`, `results/octomap_day5.png`. One open defect: phantom cells behind the aircraft. |
+| 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 obstacles mapped at 21–37× map density, open ground **and** the area behind the aircraft 0.0% occupied — `MAPPING.md`, `results/octomap_day5.png`, `results/octomap_3view.png` |
 | 6 | VIO + drift number | ⬜ | not started in sim. Front-end not yet chosen (BUILD.md §0.6). DPVO runs offline on nuScenes. |
 | 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
 
@@ -40,17 +40,23 @@ every cloud), are in `MAPPING.md`.
 
 **What's left is Day 6, plus one swap.** `planner_node` already consumes
 `nav_msgs/OccupancyGrid` and `/projected_map` is one — pointing it there instead of
-`fake_world` and flying that mission *is* the Phase-1 gate. Do that only after the
-open defect below is cleared, or the planner inherits phantom obstacles.
+`fake_world` and flying that mission *is* the Phase-1 gate. That is now unblocked: the
+map contains only real obstacles.
 
-> **⚠️ Open defect from Day 5:** ~18% of mapped cells *behind* the aircraft are
-> occupied, where nothing exists. The map itself indicts yaw control rather than
-> mapping: `offboard_manager` commands `yaw = 0.0` and the camera is fixed
-> forward-facing, so a vehicle holding that heading could only carve a north-facing
-> **wedge** of free space — but the observed free space is a near-complete **disc**,
-> and free space only comes from raycasting. Consistent with the 35° yaw seen in
-> Day 4's `tf2_echo`. First diagnostic: log yaw from `/fmu/out/vehicle_odometry`
-> across the square and compare to the commanded value.
+> **✅ Day-5 defect found and fixed the same day.** The first working map had ~18% of
+> the cells *behind* the aircraft occupied, where nothing exists. Plotting the occupied
+> **voxel centres** in plan + two elevations (`viz_octomap3d.py`) identified them
+> instantly as a thin sheet at **Up ≈ 0.2 m** — ground returns that survived the plane
+> filter, not phantom structure. `/projected_map` is 2D, so a ground return and a 4 m
+> tower look identical in it; the 3-view render is what made the difference.
+> Raising `occupancy_min_z` 0.25 → 0.45 took the artifacts to **0.0%** and *sharpened*
+> obstacle contrast from 4.6–9.5× to **21–37×**. Cost: obstacles under ~0.45 m are
+> invisible — fine for a drone at 3 m, wrong for a ground robot.
+>
+> Still worth chasing separately: the free space carved is a near-complete **disc**,
+> which a vehicle holding the commanded `yaw = 0` could not produce. That was the
+> *exposure* mechanism, not the cause, but it suggests PX4 isn't tracking commanded
+> yaw — a real bug in its own right.
 
 > **Days 5–6 decided (BUILD.md §0.6):** `octomap_server` for occupancy in sim; Isaac
 > ROS (nvblox + cuVSLAM) stays the *flight* stack on the Jetson. Isaac ROS ships only
