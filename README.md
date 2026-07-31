@@ -84,7 +84,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 3 | Offboard waypoint commanded from ROS 2 | ✅ 2026-07-13 |
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
 | 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped, 0.0% spurious |
-| 6 | VIO + a drift number | 🟡 pipeline runs at 28 Hz; **drift number not yet valid** (aircraft left the commanded path) |
+| 6 | VIO + a drift number | 🟡 pipeline runs at 28 Hz; **number not valid** — reference is an estimator, and ICP registers nothing |
 | 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
 
 **The Day-7 loop already flies.** On 2026-07-13 the X500 armed, took off, threaded a
@@ -172,11 +172,12 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. 🔄 **Day 6 — chase the flight anomaly, then re-measure drift.** `icp_odometry` runs
-   end to end at 28 Hz, but the aircraft left the commanded 5 m square and reached
-   **16.4 m/s** — so the drift figure it produced is not a benchmark and must not be
-   quoted. Find out why the flight went wrong first; no estimator result means anything
-   until the motion is nominal.
+1. 🔄 **Day 6 — two real blockers found, both open.** `icp_odometry` runs end to end at
+   28 Hz, but (a) `/fmu/out/vehicle_odometry` is **EKF2's estimate**, not truth — PX4
+   exports no groundtruth over DDS, so add a Gazebo `PosePublisher` via an overlay world
+   and bridge it; and (b) ICP reports `ratio = 0.000000` every frame, i.e. it never
+   registered a scan. Next isolating test: `frame_id:=camera_link`, which removes the TF
+   lookup from the path. Do not quote any drift figure until both are fixed.
 2. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Unplug
    `fake_world` and fly a mission planned on a **perceived** map. No new code — the
    planner already consumes that message type, and its unknown-space policy is now

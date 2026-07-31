@@ -38,14 +38,24 @@ sim holds ~500 MB for the whole run. Details, including two silent-failure traps
 (wrong octomap parameter spellings; a sim-time/wall-time clock mismatch that drops
 every cloud), are in `MAPPING.md`.
 
-> **⚠️ Day-6 result must not be quoted.** The run produced `ATE 4.32 m, final drift
-> 2.16 m (3.38%)`, which looks respectable and is not. Ground truth hit **16.4 m/s**
-> and spanned E [−14.1, +5.1] m for a mission commanding a **5 m square at 1 m/s** —
-> in a world with 37 trees that reads as a collision. The estimator tracked 47% of the
-> distance travelled, a qualitative failure rather than a drift rate, and the
-> final-drift metric flattered it because the vehicle returned toward where the
-> near-stationary estimate sat. Chasing the flight anomaly first; no estimator number
-> means anything until the motion is nominal.
+> **⚠️ Day-6 result must not be quoted — and the first explanation for it was wrong.**
+> The run produced `ATE 4.32 m, final drift 2.16 m (3.38%)`, which looks respectable
+> and is not. I first blamed the aircraft (a 16 m excursion at 16.4 m/s ⇒ "tree
+> collision"). Chasing it ruled that out — the nearest tree is 4.38 m *outside* the
+> square — and found two better answers, either of which alone voids the number:
+>
+> 1. **The reference is not ground truth.** `/fmu/out/vehicle_odometry` is **EKF2's
+>    estimate**; PX4 exports no groundtruth topic over uXRCE-DDS at all. The comparison
+>    was estimator-vs-estimator, so an EKF position jump reads as estimator "error".
+>    Path length varied **36–64 m across runs of the identical commanded 5 m square**,
+>    while `offboard_manager` logged orderly waypoint progression throughout.
+> 2. **ICP never registered anything.** Every frame logs `ratio = 0.000000` at ~0.1 ms
+>    per update, where real ICP on this cloud takes tens of ms. `/odom` is not a tracked
+>    trajectory, so no statistic derived from it means anything.
+>
+> Also ruled out with evidence: NED/FRD frame mixing (all NED), timebase artifacts,
+> a starved cloud (197 955 points at 27.5 Hz), and bad normals. Full write-up:
+> `VIO.md` §3b.
 
 **What's left is Day 6, plus one swap.** `planner_node` already consumes
 `nav_msgs/OccupancyGrid` and `/projected_map` is one — pointing it there instead of
