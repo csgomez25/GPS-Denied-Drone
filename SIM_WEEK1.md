@@ -19,7 +19,7 @@
 | 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
 | 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 obstacles mapped at 21–37× map density, open ground **and** the area behind the aircraft 0.0% occupied — `MAPPING.md`, `results/octomap_day5.png`, `results/octomap_3view.png` |
 | 6 | VIO + drift number | 🟡 **pipeline done, number invalid** | `icp_odometry` runs at 28 Hz off the depth cloud, scored against PX4 — but the aircraft left the commanded square at **16.4 m/s** and the estimator tracked only 47% of the distance, so the drift figure is not a benchmark. `VIO.md` §3 |
-| 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
+| 7 | Close the loop | ✅ **2026-07-31** | two autonomous legs planned on the **perceived** map (`/projected_map`), arriving 0.03 m / 0.12 m from goal; leg 2 flew 35.2 m for a 16.3 m straight line, routing around a wall the aircraft had mapped itself. Pose is still PX4's own sim state. `PHASE1_GATE.md` |
 
 **What's actually done:** Days 1–5 fully, and Day 7's *own code* — `planner_node`,
 `offboard_manager`, `astar`, `fake_world` all built, and the closed loop flew
@@ -57,10 +57,21 @@ every cloud), are in `MAPPING.md`.
 > a starved cloud (197 955 points at 27.5 Hz), and bad normals. Full write-up:
 > `VIO.md` §3b.
 
-**What's left is Day 6, plus one swap.** `planner_node` already consumes
-`nav_msgs/OccupancyGrid` and `/projected_map` is one — pointing it there instead of
-`fake_world` and flying that mission *is* the Phase-1 gate. That is now unblocked: the
-map contains only real obstacles.
+**The swap is done (2026-07-31) — what's left is Day 6.** `planner_node` now consumes
+`/projected_map`, and the mission flew: two autonomous legs on the perceived map, 0.03 m
+and 0.12 m arrival error, with a genuine detour around a mapped wall. Write-up:
+`PHASE1_GATE.md`.
+
+> The remap was one line, as predicted. What cost the time was everything a *perceived*
+> map does that a synthetic one never did — the goal is normally outside the observed
+> grid, nothing publishes `/current_pose` in the real stack, inflation swallows the
+> aircraft's own cell, and octomap publishes ~25× faster than a plan takes. All four
+> failed silently. Also worth carrying forward: with `use_sim_time` and no `/clock`,
+> ROS time never advances and **node timers never fire at all**.
+
+So the only incomplete day is **Day 6**, and with it the thing that makes this a
+GPS-denied stack rather than a mapping demo: every flight above runs on PX4's own
+perfect sim pose.
 
 > **✅ Day-5 defect found and fixed the same day.** The first working map had ~18% of
 > the cells *behind* the aircraft occupied, where nothing exists. Plotting the occupied

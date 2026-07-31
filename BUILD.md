@@ -63,6 +63,13 @@ at all.
 `fake_world`'s synthetic grid can be unplugged and replaced by a map built from the
 depth camera **with no planner changes**, which is the Phase-1 gate.
 
+> ✅ **Done and flown 2026-07-31.** The prediction held for the *message type* — the
+> swap was a single remap. It did not hold for the rest: a perceived map's goal is
+> normally outside the observed grid, nothing publishes `/current_pose` in the real
+> stack, inflation swallows the aircraft's own cell, and octomap publishes ~25× faster
+> than a plan takes. "No planner changes" was true of A\*; it was not true of the node.
+> See `gps_denied_autonomy/PHASE1_GATE.md` §2.
+
 **What it costs — accept this consciously.**
 - octomap is an occupancy octree, **not** nvblox: no ESDF/TSDF, no GPU, different
   parameters, different failure modes. Phase-1 tuning numbers will **not** transfer

@@ -2,12 +2,14 @@
 
 A small autonomous quadrotor that navigates and avoids obstacles **without GPS and fully offline** (all compute onboard), across indoor, outdoor, and under-structure environments. Senior design project; this folder is the planning + lab-notebook home.
 
-> Status (2026-07-30): **sim bring-up, ~75% through the Phase-1 gate.** The
-> planning→flight half of the autonomy loop flew autonomously in PX4 SITL on
-> 2026-07-13; the depth camera now streams into ROS 2 (Day 4) and builds a live
-> occupancy map with obstacles in their true positions (Day 5). What's left is
-> VIO, and pointing the planner at the perceived map. No flying hardware — by design.
-> See [Where things stand](#where-things-stand).
+> Status (2026-07-31): **sim bring-up, ~85% through the Phase-1 gate.** The full
+> perception→planning→flight loop now closes in SITL: the depth camera streams into
+> ROS 2 (Day 4), `octomap_server` builds a live map from it (Day 5), and on
+> 2026-07-31 the X500 flew two autonomous legs planned **entirely on that perceived
+> map**, detouring around a wall that existed only because the aircraft had measured
+> it (Day 7). What's left is **VIO** — the pose under all of it is still PX4's own
+> sim state, so the loop would work identically with GPS. No flying hardware — by
+> design. See [Where things stand](#where-things-stand).
 
 ---
 
@@ -46,7 +48,7 @@ Both working trees now live in **one repo**, `~/gps-denied-drone-stack/`:
 
 | Tree | What it is | Last worked |
 |---|---|---|
-| `~/gps-denied-drone-stack/gps_denied_autonomy/` | ROS 2 autonomy nodes — `offboard_manager`, `planner_node`, `astar`, `fake_world`, `px4_tf_publisher`. Runbooks: `README.md`, `SITL_FLIGHT.md`, `DEPTH_SIM.md` | 2026-07-30 |
+| `~/gps-denied-drone-stack/gps_denied_autonomy/` | ROS 2 autonomy nodes — `offboard_manager`, `planner_node`, `astar`, `fake_world`, `px4_tf_publisher`. Runbooks: `README.md`, `SITL_FLIGHT.md`, `DEPTH_SIM.md`, `MAPPING.md`, `PLANNING.md`, `VIO.md`, `PHASE1_GATE.md` | 2026-07-31 |
 | `~/gps-denied-drone-stack/bev_gps_denied/` | The **research** track — semantic-BEV map-matching localization on nuScenes. Runbook: `README.md`, thesis: `GOAL.md` | 2026-07-13 |
 | `~/PX4-Autopilot/`, `~/Micro-XRCE-DDS-Agent/` | Upstream deps, built from source | — |
 | `~/DPVO/` | Monocular VIO front-end used offline for the research track's real-drift study | 2026-07-07 |
@@ -75,7 +77,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 
 ## Where things stand
 
-### Phase-1 sim gate (SIM_WEEK1) — **~75%**
+### Phase-1 sim gate (SIM_WEEK1) — **~85%**
 
 | Day | Milestone | Status |
 |---|---|---|
@@ -85,7 +87,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
 | 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped, 0.0% spurious |
 | 6 | VIO + a drift number | 🟡 pipeline runs at 28 Hz; **number not valid** — reference is an estimator, and ICP registers nothing |
-| 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
+| 7 | Close the loop | ✅ **2026-07-31** — two autonomous legs planned on the perceived map; arrived 0.03 m / 0.12 m from goal, 35.2 m flown for a 16.3 m straight line (the detour) |
 
 **The Day-7 loop already flies.** On 2026-07-13 the X500 armed, took off, threaded a
 doorway on an A\* path, and landed — 1596 telemetry samples, 32 s, ended at the goal
@@ -116,12 +118,29 @@ lower: lowering the aircraft does not move the horizon.
 needs: ICP odometry on a flat plane is degenerate, whereas trees constrain every
 direction.
 
-**What's still missing is odometry, and one rewire.** Pose still comes from PX4's own
-perfect sim state, so the gate text ("map built live from depth *and* cuVSLAM producing
-a validated odometry track") is half met. Per [BUILD.md §0.6](./BUILD.md) the map half
-was met with **octomap rather than nvblox**, so the claim is "architecture proven," not
-"nvblox validated." The rewire is pointing `planner_node` at `/projected_map` instead of
-`fake_world` — no new code, since it already consumes that message type.
+**The loop now closes on the perceived map (Day 7, 2026-07-31).** `planner_node` was
+pointed at `/projected_map` and the X500 flew two autonomous legs on it, arriving 0.03 m
+and 0.12 m from goal. Leg 2 flew **35.2 m for a 16.3 m straight line** — the direct route
+crosses the mapped wall, so the planner routed around it and the aircraft stayed 3.27 m
+clear. The obstacles also mapped ~20 points denser than the static Day-5 run, because
+`offboard_manager` yaws along the path and swept the camera across many headings.
+Runbook, the four things a perceived map breaks, and the figure:
+`gps_denied_autonomy/PHASE1_GATE.md`, `results/phase1_flight.png`.
+
+**What's still missing is odometry.** Pose still comes from PX4's own perfect sim state,
+so the gate text ("map built live from depth *and* cuVSLAM producing a validated
+odometry track") is half met — and it is the half that makes this a *GPS-denied* stack.
+Everything flown so far would work identically with GPS. Per
+[BUILD.md §0.6](./BUILD.md) the map half was met with **octomap rather than nvblox**, so
+the claim is "architecture proven," not "nvblox validated." Say "the planner flies on a
+map built from the depth camera"; do not say "GPS-denied navigation demonstrated."
+
+> The swap itself was one remap — `/occupancy_grid` → `/projected_map`, exactly as
+> predicted, since the planner already consumed that message type. What was **not**
+> free was everything a perceived map does that a synthetic one never did: the goal is
+> normally outside the observed grid, nothing publishes `/current_pose` in the real
+> stack, inflation swallows the aircraft's own cell, and octomap publishes ~25× faster
+> than a plan takes. Each failed silently. `PHASE1_GATE.md` §2.
 
 **The one defect found was fixed the same day.** ~18% of cells *behind* the aircraft
 came back occupied where nothing exists. Plotting the occupied voxel centres in plan +
@@ -156,13 +175,13 @@ Full pipeline runs end-to-end on all 10 nuScenes mini scenes with real DPVO drif
 ### Everything downstream — **0%**
 
 Phases 2–5 have not begun. No hardware ordered, no funding confirmed, the two ⚠️
-BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
+BUILD.md §0.5 items still unverified. Overall project ≈ **15%**.
 
 ---
 
 ## Phases (scope ladder — each is a defensible deliverable)
 
-1. **Sim** — obstacle avoidance working in SITL. ← summer gate, before buying the rest · **~50%**
+1. **Sim** — obstacle avoidance working in SITL. ← summer gate, before buying the rest · **~70%**
 2. **Hardware bring-up** — X500 manual flight; cuVSLAM + nvblox on the bench with the real RealSense · **0%**
 3. **Integration** — closed-loop indoor autonomous obstacle avoidance · **0%**
 4. **Outdoor / under-structure** — the GPS-denied "anywhere" demo · **0%**
@@ -195,10 +214,10 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 3. ⬜ **Practice Kalibr on a dataset.** Camera–IMU calibration is the one thing sim
    cannot teach — in sim the extrinsic is exact and free; on hardware it is vibration,
    thermal drift and a fiddly toolchain. EuRoC ships calibration data.
-4. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** An
-   afternoon; no new code, since the planner already consumes that message type and its
-   unknown-space policy is measured on two real maps. Milestone value now, not decision
-   value.
+4. ✅ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** **Done
+   2026-07-31** — flown, two legs, 0.03 m and 0.12 m arrival error, with a real detour
+   around a mapped obstacle. Took more than the predicted afternoon: the remap was one
+   line, but four silent failures had to be fixed around it (`PHASE1_GATE.md` §2–3).
 5. ⬜ **Research track:** the 2-DOF (along-track + heading) matcher — the cross-track
    line is closed out with evidence. See `bev_gps_denied/README.md` in the code repo.
 6. 🟡 **Day 6 — timeboxed, then move on.** Two real blockers: `/fmu/out/vehicle_odometry`
@@ -219,6 +238,8 @@ check does **not** wait, and is folded into item 2.)*
 
 | Date | Track | What happened |
 |---|---|---|
+| 2026-07-31 | drone | **Phase-1 gate flown** — `planner_node` swapped onto `octomap`'s `/projected_map`; two autonomous legs planned on a map built by the aircraft while flying, arriving 0.03 m / 0.12 m from goal, with a 35.2 m detour around a mapped wall on a 16.3 m straight line. → `PHASE1_GATE.md` |
+| 2026-07-30 | drone | Days 4–5 — depth camera into ROS 2, occupancy map from depth (octomap), 20° camera tilt, forest world, unknown-space policy. Gazebo RAM leak root-caused to the unused RGB camera. |
 | 2026-07-13 | drone | **First fully autonomous end-to-end SITL flight** — synthetic map → A\* → offboard, no human input. Three integration bugs fixed (topic-name drift, periodic-replan stall, PX4 arming params). → `SITL_FLIGHT.md` |
 | 2026-07-13 | research | Ambiguity gate fixed the one-lane alias but made cross-track matching **inert**. Cross-track-only line closed out; 2-DOF is the path. |
 | 2026-07-11 | research | Causal experiment (`dpvo-cross` / `dpvo-along`) **refuted** the along-track-gating hypothesis; isolated a biased/aliased cross-track measurement. |
