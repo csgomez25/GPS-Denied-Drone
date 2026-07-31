@@ -84,7 +84,7 @@ are now **symlinks** into that repo. That keeps `colcon build` working from `~/w
 | 3 | Offboard waypoint commanded from ROS 2 | ✅ 2026-07-13 |
 | 4 | Depth camera into ROS 2 | ✅ 2026-07-30 — 4 topics at rate, in flight, real TF |
 | 5 | Occupancy map from depth | ✅ 2026-07-30 — **octomap**, not nvblox ([BUILD.md §0.6](./BUILD.md)). 3/3 obstacles mapped, 0.0% spurious |
-| 6 | VIO + a drift number | 🔄 next — front-end decided: **rtabmap `icp_odometry`**, installed |
+| 6 | VIO + a drift number | 🟡 pipeline runs at 28 Hz; **drift number not yet valid** (aircraft left the commanded path) |
 | 7 | Close the loop | 🟡 **flown on a synthetic map**, not a perceived one |
 
 **The Day-7 loop already flies.** On 2026-07-13 the X500 armed, took off, threaded a
@@ -172,10 +172,11 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. 🔄 **Day 6 — VIO drift number.** `rtabmap_ros` is installed; run `icp_odometry` on
-   the depth cloud in the **forest** world with **loop closure off** (it is SLAM, and
-   loop closure corrects the very drift being measured), scored against PX4's perfect
-   ground truth.
+1. 🔄 **Day 6 — chase the flight anomaly, then re-measure drift.** `icp_odometry` runs
+   end to end at 28 Hz, but the aircraft left the commanded 5 m square and reached
+   **16.4 m/s** — so the drift figure it produced is not a benchmark and must not be
+   quoted. Find out why the flight went wrong first; no estimator result means anything
+   until the motion is nominal.
 2. ⬜ **Close the Phase-1 gate: point `planner_node` at `/projected_map`.** Unplug
    `fake_world` and fly a mission planned on a **perceived** map. No new code — the
    planner already consumes that message type, and its unknown-space policy is now

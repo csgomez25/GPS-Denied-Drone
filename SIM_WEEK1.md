@@ -18,7 +18,7 @@
 | 3 | Offboard waypoint from ROS 2 | ✅ | `~/ws_px4` builds `px4_msgs` + `px4_ros_com` + `gps_denied_autonomy` |
 | 4 | Depth camera into ROS 2 | ✅ **2026-07-30** | 4 topics at rate, in flight, real TF — `DEPTH_SIM.md` §2, `results/depth_bridge.png` |
 | 5 | Occupancy map from depth | ✅ **2026-07-30** | `octomap_server` on `/depth_camera/points`; 3/3 obstacles mapped at 21–37× map density, open ground **and** the area behind the aircraft 0.0% occupied — `MAPPING.md`, `results/octomap_day5.png`, `results/octomap_3view.png` |
-| 6 | VIO + drift number | 🔄 **next** | `rtabmap_ros` installed 2026-07-30; plan is `icp_odometry` on the depth cloud in the **forest** world (trees give ICP the geometry a flat plane does not), scored against PX4 ground truth |
+| 6 | VIO + drift number | 🟡 **pipeline done, number invalid** | `icp_odometry` runs at 28 Hz off the depth cloud, scored against PX4 — but the aircraft left the commanded square at **16.4 m/s** and the estimator tracked only 47% of the distance, so the drift figure is not a benchmark. `VIO.md` §3 |
 | 7 | Close the loop | 🟡 **partly done** | flew autonomously 2026-07-13 — but on `fake_world`'s **synthetic** map, with PX4's own sim pose |
 
 **What's actually done:** Days 1–5 fully, and Day 7's *own code* — `planner_node`,
@@ -37,6 +37,15 @@ positions, open ground inside the flight square comes back **0.0% occupied**, an
 sim holds ~500 MB for the whole run. Details, including two silent-failure traps
 (wrong octomap parameter spellings; a sim-time/wall-time clock mismatch that drops
 every cloud), are in `MAPPING.md`.
+
+> **⚠️ Day-6 result must not be quoted.** The run produced `ATE 4.32 m, final drift
+> 2.16 m (3.38%)`, which looks respectable and is not. Ground truth hit **16.4 m/s**
+> and spanned E [−14.1, +5.1] m for a mission commanding a **5 m square at 1 m/s** —
+> in a world with 37 trees that reads as a collision. The estimator tracked 47% of the
+> distance travelled, a qualitative failure rather than a drift rate, and the
+> final-drift metric flattered it because the vehicle returned toward where the
+> near-stationary estimate sat. Chasing the flight anomaly first; no estimator number
+> means anything until the motion is nominal.
 
 **What's left is Day 6, plus one swap.** `planner_node` already consumes
 `nav_msgs/OccupancyGrid` and `/projected_map` is one — pointing it there instead of
