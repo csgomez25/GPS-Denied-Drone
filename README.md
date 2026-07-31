@@ -104,12 +104,13 @@ so the eventual claim must be "architecture proven," not "nvblox validated." Day
 otherwise unblocked: octomap consumes the point cloud the bridge already publishes and
 emits the `OccupancyGrid` type `planner_node` already accepts.
 
-**Two blockers found during Day 4.** (1) ✅ *Fixed* — `depth_bridge.launch.py` defaulted
-to a placeholder TF that conflicted with `px4_tf_publisher`, giving `camera_link` two
-parents; the default is now off, so the normal path is correct with no extra flags.
-(2) ⬜ *Open* — `gz sim` leaked to ~30 GB RSS and was OOM-killed twice, the second time
-taking the desktop session down. Mapping runs keep the sim alive much longer than a
-60 s capture, so this one bites Day 5 harder than it bit Day 4.
+**Two blockers found during Day 4, both now fixed.** (1) `depth_bridge.launch.py`
+defaulted to a placeholder TF that conflicted with `px4_tf_publisher`, giving
+`camera_link` two parents; the default is now off. (2) `gz sim` grew at a flat
+**180 MB/s** and was OOM-killed twice, the second time taking the desktop session down
+— root-caused to the OakD-Lite's **unused 1920×1080 RGB camera**, which Gazebo renders
+unconditionally. An overlay model deletes that sensor; the sim now holds ~490 MB
+indefinitely and Day 4 still passes. The depth camera never leaked.
 
 ### Research track — stage 1 BEV localization — **~70%**
 
@@ -145,22 +146,18 @@ BUILD.md §0.5 items still unverified. Overall project ≈ **13%**.
 
 ## Do next (immediate)
 
-1. ⬜ **Push all three repos somewhere off this laptop.** They're now under git but
-   have no remotes — one disk failure still costs six weeks. This is the cheapest
-   remaining item on this list.
-2. ⬜ **Characterise Gazebo's RAM leak** (`DEPTH_SIM.md` §4b) before Day 5 — mapping
-   keeps the sim alive far longer than a 60 s capture, and the current ceiling is
-   10–20 min. Start by A/B-ing `gz_x500` against `gz_x500_depth`.
-3. ⬜ **[SIM_WEEK1](./SIM_WEEK1.md) Day 5 — occupancy map from depth**, via
-   `octomap_server` (installed). Drop an obstacle into the world first; every depth
-   capture so far is over an empty ground plane, so nothing has been within 3 m of the
-   camera. Then unplug `fake_world` and point `planner_node` at `/projected_map`.
-4. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June.*
-5. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
-6. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*
-7. ⬜ **Research track:** build the 2-DOF (along-track + heading) matcher — the cross-track
-   line is closed out with evidence. See `~/bev_gps_denied/README.md`.
-8. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera) + begin the VIO ladder in [ROADMAP.md](./ROADMAP.md).
+1. ⬜ **[SIM_WEEK1](./SIM_WEEK1.md) Day 5 — occupancy map from depth**, via
+   `octomap_server` (installed). Now unblocked — both Day-4 blockers are fixed and the
+   sim holds a flat ~490 MB, so a long mapping run works. Drop an obstacle into the
+   world first; every depth capture so far is over an empty ground plane, so nothing has
+   been within 3 m of the camera. Then unplug `fake_world` and point `planner_node` at
+   `/projected_map` — that swap is the Phase-1 gate.
+2. ⬜ Verify the two ⚠️ items in [BUILD.md §0.5](./BUILD.md) (Orin Nano, not old Nano; Isaac ROS × Orin Nano × Jazzy support). *Still open since June — and now more urgent, since dropping Isaac ROS from sim means nothing else forces the question before hardware.*
+3. ⬜ Confirm the **funding source** (reimbursable over summer or only in fall?) → finalizes the buy list. *Still open since June.*
+4. ⬜ Order the **RealSense D435i** (thin stock, long lead, bench-testable alone). *Still open since June.*
+5. ⬜ **Research track:** build the 2-DOF (along-track + heading) matcher — the cross-track
+   line is closed out with evidence. See `bev_gps_denied/README.md` in the code repo.
+6. ⬜ Audit-enroll in **UPenn Aerial Robotics** (Coursera) + begin the VIO ladder in [ROADMAP.md](./ROADMAP.md).
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes (except the long-lead RealSense/Jetson).
 

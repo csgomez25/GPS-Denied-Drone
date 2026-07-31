@@ -44,16 +44,23 @@ already publishes, and emits the `OccupancyGrid` type `planner_node` already acc
 > costs: Phase-1 tuning numbers will **not** transfer to nvblox, and this does not
 > count as "nvblox validated." The Day-6 VIO front-end is still undecided.
 
-> **Two blockers found during Day 4.**
-> 1. ✅ **Invalid TF tree — fixed 2026-07-30.** `depth_bridge.launch.py` defaulted
->    `static_tf:=true`, publishing `map -> camera_link` while `px4_tf_publisher`
->    publishes `base_link -> camera_link`. Both ran together, giving `camera_link` two
->    parents — and near the origin it looked fine. The default is now `false`, so
->    bridge + `px4_tf_publisher` is correct with no extra flags. Don't re-enable it.
-> 2. ⬜ **Gazebo leaks system RAM — still open.** `gz sim` reached ~30 GB RSS and was
->    OOM-killed twice on 2026-07-30 (15:16, 15:25 — the second took the desktop session
->    with it), after 10–20 min with `gz_x500_depth`. This is **31 GB of system RAM**,
->    not the 6 GB VRAM limit. Short captures are fine; mapping runs are not.
+> **Two blockers found during Day 4 — both now fixed (2026-07-30).**
+> 1. ✅ **Invalid TF tree.** `depth_bridge.launch.py` defaulted `static_tf:=true`,
+>    publishing `map -> camera_link` while `px4_tf_publisher` publishes
+>    `base_link -> camera_link`. Both ran together, giving `camera_link` two parents —
+>    and near the origin it looked fine. The default is now `false`, so bridge +
+>    `px4_tf_publisher` is correct with no extra flags. Don't re-enable it.
+> 2. ✅ **Gazebo's RAM leak — root-caused to the unused RGB camera.** `gz sim` grew at
+>    a flat **180 MB/s** and was OOM-killed twice (15:16, 15:25 — the second took the
+>    desktop session with it). It is the OakD-Lite's **1920×1080 RGB camera at 30 Hz**,
+>    matching `1920×1080×3×30 = 178 MiB/s`. The **depth** camera does not leak at all.
+>    Fixed with an overlay model that deletes the RGB sensor; the sim now holds ~490 MB
+>    indefinitely and Day 4 still passes. **Requires one `export`** — see
+>    `gps_denied_autonomy/sim/README.md` and `DEPTH_SIM.md` §4b.
+>
+> Ruled out along the way: `always_on=0` (doesn't gate rendering on subscribers) and
+> the Gazebo version (system 8.14.0 leaks identically to the ROS-vendored 8.11.0 —
+> note `.bashrc` makes 8.11.0 the default via `GZ_CONFIG_PATH`).
 
 ---
 
@@ -226,9 +233,10 @@ exact type `planner_node` already consumes. That is the whole point: `fake_world
 synthetic grid unplugs and a perceived map plugs in **with no planner changes**, which
 is the Phase-1 gate.
 
-**Clear the two Day-4 blockers first** (invalid TF tree; Gazebo's RAM leak). Mapping
-keeps the sim alive far longer than a 60 s capture, so a 10–20 minute ceiling will bite
-here, and a wrong TF yields a wrong map that still looks plausible.
+**Both Day-4 blockers are cleared**, which is what makes this practical: the TF tree is
+correct, and the sim now holds a flat ~490 MB instead of dying in minutes — so a long
+mapping run is finally possible. Just remember the `GZ_SIM_RESOURCE_PATH` export, or
+the RGB leak comes back.
 
 **✅ Success check:** an obstacle dropped into the Gazebo world appears as occupied
 cells in `/projected_map`, and the map persists correctly as the drone flies past it
@@ -378,7 +386,9 @@ Simulated X500 autonomously flies start → goal, avoiding one inserted obstacle
 - **Frames/TF:** PX4 is NED, ROS is ENU. The px4_ros_com helpers handle conversions — respect them or your waypoints go sideways.
 - **Gazebo *sensor* frames are x-forward**, while ROS's optical convention is z-forward. Confirmed on the depth cloud, Day 4. Different axis trap from the NED/ENU one above, and it bites the mapper rather than the controller.
 - **One child frame, one parent.** Running two publishers that both parent `camera_link` produces an invalid TF tree that tf2 resolves nondeterministically — and near the origin it looks *fine*. Hit on Day 4; see DEPTH_SIM.md §4a.
-- **Watch system RAM, not just VRAM.** `gz sim` with the depth airframe grew to ~30 GB RSS and was OOM-killed twice on 2026-07-30, the second time taking the desktop session down. The 6 GB VRAM limit is a *separate* constraint with a confusingly similar symptom.
+- **Watch system RAM, not just VRAM.** `gz sim` with the depth airframe grew at 180 MB/s and was OOM-killed twice on 2026-07-30, the second time taking the desktop session down. The 6 GB VRAM limit is a *separate* constraint with a confusingly similar symptom. Root cause was the unused 1920×1080 RGB camera; fixed by an overlay model (`DEPTH_SIM.md` §4b).
+- **An unused sensor still costs you everything.** Nothing subscribed to that RGB topic, and `always_on=0` didn't stop it either — Gazebo renders declared sensors regardless. If you don't need a sensor, delete it from the model rather than leaving it unsubscribed.
+- **You have two Gazebo installs.** `.bashrc` sources ROS, which sets `GZ_CONFIG_PATH` to the ROS-vendored **8.11.0**; apt has **8.14.0**. Check `gz sim --version` before blaming (or reporting) a version-specific bug.
 - **Don't redirect the `pxh>` console to an uncapped file.** Two SITL logs reached 7.8 GB, almost entirely terminal escape codes.
 
 ---

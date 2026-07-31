@@ -179,15 +179,13 @@ Your goal isn't "do the project," it's **broaden from CV into an autonomy/locali
 ---
 
 ## Start RIGHT NOW (updated 2026-07-30, after Day 4)
-1. ⬜ **Give all three repos a remote and push.** They're under git as of 2026-07-30 but live only on this laptop, which is the same single point of failure with extra steps.
-2. ⬜ **Characterise Gazebo's ~30 GB RAM leak** (`DEPTH_SIM.md` §4b) — the one Day-4 blocker still open, and it bites Day 5 harder than it bit Day 4. A/B `gz_x500` vs `gz_x500_depth` first.
-3. ⬜ **SIM_WEEK1 Day 5 — occupancy map from depth** via `octomap_server`, then swap `fake_world` out for `/projected_map`. That swap *is* the Phase-1 gate.
-4. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 7). Doesn't block Day 5; `px4_tf_publisher` is the interface contract.
-5. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
-6. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
-7. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
-8. ⬜ **VIO ladder is behind.** You've used DPVO as a black box for the research track but haven't done steps 1–3 (Labbe's filters → OpenVINS on EuRoC → your own toy VI-EKF). That ladder *is* the career deliverable; the sim work won't produce it for you — and now that cuVSLAM is out of the sim path, even less of it comes for free.
+1. ⬜ **SIM_WEEK1 Day 5 — occupancy map from depth** via `octomap_server`, then swap `fake_world` out for `/projected_map`. That swap *is* the Phase-1 gate. Both Day-4 blockers are now cleared — the TF tree, and the Gazebo RAM leak (root-caused to the unused 1920×1080 RGB camera, fixed by an overlay model that deletes it) — so the sim holds a flat ~490 MB and a long mapping run is finally practical. Drop an obstacle into the world first; every depth capture so far is over bare ground.
+2. ⬜ **Decide the Day-6 VIO front-end** — `rtabmap_ros`, DPVO, or fold it into the offline OpenVINS ladder (item 6). Doesn't block Day 5; `px4_tf_publisher` is the interface contract.
+3. ⬜ Verify the two ⚠️ items in BUILD.md §0.5 (Orin Nano not old Nano; Isaac ROS × Orin Nano × Jazzy version). *Open since June — and now **more** urgent, since dropping Isaac ROS from sim means nothing else will force the question before hardware.*
+4. ⬜ Order the **RealSense D435i** (supply is thin; long lead item, bench-testable alone). *Open since June.*
+5. ⬜ Audit-enroll in the **UPenn Aerial Robotics** Coursera course — it underpins Phase 1.
+6. ⬜ **VIO ladder is behind.** You've used DPVO as a black box for the research track but haven't done steps 1–3 (Labbe's filters → OpenVINS on EuRoC → your own toy VI-EKF). That ladder *is* the career deliverable; the sim work won't produce it for you — and now that cuVSLAM is out of the sim path, even less of it comes for free.
 
-*(Done: all three trees under git — lab notebook, `gps_denied_autonomy` `5aa13a5`, `bev_gps_denied` `08eda77`; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6; the Day-4 TF-conflict fix.)*
+*(Done: all code under git and **pushed** — lab notebook to `GPS-Denied-Drone`, both working trees merged into the private `GPS_Denied` repo; SIM_WEEK1 Days 1–4; the Day-5 perception-path decision, recorded as BUILD.md §0.6; both Day-4 blockers — the TF conflict and the Gazebo RAM leak — found and fixed.)*
 
 > Don't buy the rest of the BOM until the Phase-1 sim gate passes.
